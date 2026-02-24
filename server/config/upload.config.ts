@@ -11,7 +11,7 @@ if (!fs.existsSync(UPLOADS_DIR)) {
     fs.mkdirSync(UPLOADS_DIR, { recursive: true });
 }
 
-const storage = multer.diskStorage({
+export const storage = multer.diskStorage({
     destination: (_req, _file, cb) => {
         cb(null, UPLOADS_DIR);
     },
@@ -22,18 +22,10 @@ const storage = multer.diskStorage({
     },
 });
 
-const fileFilter: multer.Options["fileFilter"] = (_req, file, cb) => {
+export const fileFilter: multer.Options["fileFilter"] = (_req, file, cb) => {
     if (file.mimetype.startsWith("image/")) {
         cb(null, true);
     } else {
         cb(new Error("Only image files are allowed"));
     }
 };
-
-export const upload = multer({
-    storage,
-    fileFilter,
-    limits: {
-        fileSize: 5 * 1024 * 1024, // 5 MB
-    },
-});

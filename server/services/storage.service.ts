@@ -1,7 +1,7 @@
-import { UserModel, IUser } from "./models/User";
-import { VenueModel, IVenue } from "./models/Venue";
-import { SeatModel, ISeat } from "./models/Seat";
-import { ReservationModel, IReservation } from "./models/Reservation";
+import { UserModel, IUser } from "../models/User";
+import { VenueModel, IVenue } from "../models/Venue";
+import { SeatModel, ISeat } from "../models/Seat";
+import { ReservationModel, IReservation } from "../models/Reservation";
 import {
   type User, type InsertUser,
   type Venue, type InsertVenue,
