@@ -28,7 +28,7 @@ export async function registerRoutes(
     // Mount other feature routers at root '/'
     app.use("/", venueRoutes);
     app.use("/", reservationRoutes);
-    app.use("/", adminRoutes);
+    app.use("/api/admin", adminRoutes);
 
     return httpServer;
 }
