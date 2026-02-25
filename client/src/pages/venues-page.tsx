@@ -60,13 +60,24 @@ export default function VenuesPage() {
 
   return (
     <LayoutShell>
-      <div className="container py-10 px-4 md:px-8 mx-auto">
+      <div className="container py-10 px-4 md:px-8 mx-auto bg-[#f6f3ed]">
         <div className="flex flex-col items-center text-center mb-12">
           <div className="max-w-2xl">
-            <h1 className="text-4xl md:text-5xl font-bold font-display tracking-tight text-foreground">Available Venues</h1>
-            <p className="text-muted-foreground mt-4 text-lg">
-              Find and reserve your perfect spot across campus. View real-time availability and book instantly.
-            </p>
+            <h1 className="
+              font-editorial
+              text-[48px] md:text-[72px]
+              leading-[1.02]
+              tracking-[-0.02em]
+              text-[#1C1C1C]
+            ">
+              Check Available               <span className="italic font-bold text-black">
+                Venues
+              </span>
+              <br />
+              <span className="italic font-bold text-accentRed">
+                you will find whatever suits you
+              </span>
+            </h1>
           </div>
         </div>
 
@@ -121,21 +132,21 @@ export default function VenuesPage() {
           </div>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 ">
           {filteredVenues.map((venue) => {
             const isOpen = isVenueOpen(venue.openTime, venue.closeTime)
             const occupied = venue.occupiedSeats || 0;
             const hasSeatsValue = occupied < venue.capacity;
 
             const badgeColor = isOpen
-              ? "bg-green-500/90 text-white border-green-400"
-              : "bg-red-500/90 text-white border-red-400"
+              ? "bg-green-400 text-white border-green-400"
+              : "bg-red-700 text-white border-red-400"
 
             const CategoryIcon = CATEGORY_ICONS[venue.category] || Building2;
 
             return (
               <Link key={venue.id} href={`/venues/${venue.id}`}>
-                <Card className="group cursor-pointer hover:shadow-xl transition-all duration-300 border-border/50 hover:border-primary/20 overflow-hidden relative">
+                <Card className="group cursor-pointer hover:shadow-2xl shadow-lg transition-all duration-300 border-border/50 border-red-100 hover:border-primary/20 overflow-hidden relative bg-white/30">
                   <div className="relative h-48 w-full bg-muted overflow-hidden">
                     {venue.imageUrl ? (
                       <img
@@ -170,10 +181,10 @@ export default function VenuesPage() {
 
                   <CardHeader>
                     <CardTitle className="flex items-center justify-between">
-                      <span className="font-display text-xl">{venue.name}</span>
+                      <span className="italic font-bold text-xl">{venue.name}</span>
                     </CardTitle>
                     <CardDescription className="flex items-center gap-1">
-                      <MapPin className="h-4 w-4 text-primary/60" /> {venue.location}
+                      <MapPin className="h-4 w-4 text-red-800" /> {venue.location}
                     </CardDescription>
                   </CardHeader>
 
@@ -186,7 +197,7 @@ export default function VenuesPage() {
                   <CardFooter className="flex justify-between items-center pt-2">
                     <div className="flex flex-col gap-1">
                       <div className="flex items-center gap-2 text-sm font-medium">
-                        <Users className="h-4 w-4 text-primary" />
+                        <Users className="h-4 w-4 text-red-800 font-bold" />
                         <span>{occupied} / {venue.capacity} occupied</span>
                       </div>
                       <div className="w-full bg-muted rounded-full h-1.5 overflow-hidden">
@@ -199,7 +210,7 @@ export default function VenuesPage() {
                     <Button
                       variant="ghost"
                       size="sm"
-                      className="group-hover:text-primary group-hover:translate-x-1 transition-all"
+                      className="group-hover:text-red-600 group-hover:translate-x-1 transition-all"
                     >
                       View <ArrowRight className="ml-1 h-4 w-4" />
                     </Button>

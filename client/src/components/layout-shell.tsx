@@ -34,12 +34,12 @@ export function LayoutShell({ children }: { children: React.ReactNode }) {
     : "U";
 
   return (
-    <div className="min-h-screen bg-background font-sans flex flex-col">
-      <header className="sticky top-0 z-50 w-full border-b bg-background/80 backdrop-blur supports-[backdrop-filter]:bg-background/60 flex justify-center">
+    <div className="min-h-screen bg-[#f6f3ed] font-sans flex flex-col">
+      <header className="sticky top-0 z-50 w-full border-b bg-[#f6f3ed] backdrop-blur supports-[backdrop-filter]:bg-[#f6f3ed] flex justify-center">
         <div className="container px-4 md:px-8 flex h-16 items-center justify-between mx-auto">
           <div className="flex items-center gap-8">
             <Link href="/" className="flex items-center gap-2">
-              <div className="bg-primary h-8 w-8 rounded-lg flex items-center justify-center">
+              <div className="bg-red-900 h-8 w-8 rounded-lg flex items-center justify-center">
                 <Calendar className="h-5 w-5 text-white" />
               </div>
               <span className="text-xl font-bold font-display tracking-tight text-foreground">
@@ -115,7 +115,7 @@ export function LayoutShell({ children }: { children: React.ReactNode }) {
                   <Button variant="ghost" size="sm">Log in</Button>
                 </Link>
                 <Link href="/register">
-                  <Button size="sm" className="bg-primary hover:bg-primary/90 text-white shadow-md shadow-primary/20">Sign up</Button>
+                  <Button size="sm" className="bg-black hover:bg-black/60 text-white shadow-md shadow-primary/20">Sign up</Button>
                 </Link>
               </div>
             )}
