@@ -41,6 +41,9 @@ export function setupAuth(app: Express) {
                     if (!user || !(await comparePasswords(password, user.password as string))) {
                         return done(null, false, { message: "Invalid email or password" });
                     }
+                    if (user.status === "disabled") {
+                        return done(null, false, { message: "Account disabled" });
+                    }
                     return done(null, user);
                 } catch (err) {
                     return done(err);
@@ -60,17 +63,70 @@ export function setupAuth(app: Express) {
     });
 }
 
+import { AdminVenueAssignmentModel } from "../models/AdminVenueAssignment";
+
 // Global Auth Guards
 export const requireAuth = (req: Request, res: Response, next: NextFunction) => {
     if (!req.isAuthenticated()) {
+        console.warn("[AUTH] requireAuth failed: Not authenticated. Path:", req.path);
         return res.status(401).json({ message: "Unauthorized" });
+    }
+    if ((req.user as User).status === "disabled") {
+        console.warn("[AUTH] requireAuth failed: Account disabled");
+        req.logout((err) => {
+            return res.status(403).json({ message: "Account disabled" });
+        });
+        return;
     }
     next();
 };
 
 export const requireAdmin = (req: Request, res: Response, next: NextFunction) => {
-    if (!req.isAuthenticated() || (req.user as User).role !== "admin") {
-        return res.status(401).json({ message: "Admin access required" });
-    }
-    next();
+    requireAuth(req, res, () => {
+        const role = (req.user as User).role;
+        if (role !== "admin" && role !== "super_admin") {
+            console.warn(`[AUTH] requireAdmin failed: Found role ${role}`);
+            return res.status(403).json({ message: "Admin access required" });
+        }
+        next();
+    });
+};
+
+export const requireSuperAdmin = (req: Request, res: Response, next: NextFunction) => {
+    requireAuth(req, res, () => {
+        const role = (req.user as User).role;
+        if (role !== "super_admin") {
+            console.warn(`[AUTH] requireSuperAdmin failed: Found role ${role}`);
+            return res.status(403).json({ message: "Super Admin access required" });
+        }
+        next();
+    });
+};
+
+export const requireVenueAccess = async (req: Request, res: Response, next: NextFunction) => {
+    requireAdmin(req, res, async () => {
+        const user = req.user as User;
+
+        // Super admins have access to all venues
+        if (user.role === "super_admin") {
+            return next();
+        }
+
+        const venueId = req.params.id || req.body.venueId;
+        if (!venueId) {
+            return res.status(400).json({ message: "Venue ID is required" });
+        }
+
+        // Check assigned venues via mapping table
+        const assignment = await AdminVenueAssignmentModel.findOne({
+            adminId: user.id,
+            venueId: venueId
+        });
+
+        if (!assignment) {
+            return res.status(403).json({ message: "Access denied for this venue" });
+        }
+
+        next();
+    });
 };

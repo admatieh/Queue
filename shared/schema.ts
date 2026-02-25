@@ -5,7 +5,8 @@ export const insertUserSchema = z.object({
     email: z.string().email(),
     password: z.string().min(6),
     name: z.string().optional(),
-    role: z.enum(["user", "admin"]).default("user"),
+    role: z.enum(["user", "admin", "super_admin"]).default("user"),
+    status: z.enum(["active", "disabled"]).default("active"),
 });
 
 export type User = {
@@ -13,8 +14,11 @@ export type User = {
     email: string;
     password?: string;
     name?: string;
-    role: "user" | "admin";
+    role: "user" | "admin" | "super_admin";
+    status: "active" | "disabled";
     createdAt: string;
+    deletedAt?: string | null;
+    deletedBy?: string | null;
 };
 
 export type InsertUser = z.infer<typeof insertUserSchema>;
@@ -27,8 +31,10 @@ export const insertVenueSchema = z.object({
     capacity: z.number().default(0),
     openTime: z.string().default("09:00"),
     closeTime: z.string().default("22:00"),
+    timezone: z.string().default("UTC"),
     imageUrl: z.string().optional(),
     category: z.enum(["tech", "cafe", "restaurant"]).default("tech"),
+    status: z.enum(["active", "disabled"]).default("active"),
 });
 
 export type Venue = {
@@ -39,10 +45,14 @@ export type Venue = {
     capacity: number;
     openTime: string;
     closeTime: string;
+    timezone: string;
     imageUrl?: string;
     category: "tech" | "cafe" | "restaurant";
+    status: "active" | "disabled";
     occupiedSeats?: number;
     createdAt: string;
+    deletedAt?: string | null;
+    deletedBy?: string | null;
 };
 
 export type InsertVenue = z.infer<typeof insertVenueSchema>;
@@ -50,8 +60,9 @@ export type InsertVenue = z.infer<typeof insertVenueSchema>;
 // === SEATS ===
 export const insertSeatSchema = z.object({
     venueId: z.string(),
-    row: z.string(),
-    col: z.string(),
+    label: z.string(),
+    section: z.string().optional(),
+    locationDescription: z.string().optional(),
     type: z.enum(["standard", "premium", "accessible"]).default("standard"),
     status: z.enum(["available", "occupied", "disabled"]).default("available"),
     x: z.number().optional(),
@@ -61,8 +72,9 @@ export const insertSeatSchema = z.object({
 export type Seat = {
     id: string;
     venueId: string;
-    row: string;
-    col: string;
+    label: string;
+    section?: string;
+    locationDescription?: string;
     type: "standard" | "premium" | "accessible";
     status: "available" | "occupied" | "disabled";
     x?: number;
@@ -91,6 +103,44 @@ export type Reservation = {
 };
 
 export type InsertReservation = z.infer<typeof insertReservationSchema>;
+
+// === ADMIN & NOTIFICATIONS ===
+
+export type AdminVenueAssignment = {
+    id: string;
+    adminId: string;
+    venueId: string;
+    assignedBy: string;
+    createdAt: string;
+};
+
+export type UserVenueNotificationSubscription = {
+    id: string;
+    userId: string;
+    venueId: string;
+    enabled: boolean;
+    createdAt: string;
+};
+
+export type UserNotification = {
+    id: string;
+    userId: string;
+    venueId: string;
+    title: string;
+    message: string;
+    read: boolean;
+    createdAt: string;
+};
+
+export type AuditLog = {
+    id: string;
+    actorUserId: string;
+    action: string;
+    targetType: string;
+    targetId: string;
+    metadata?: any;
+    createdAt: string;
+};
 
 // Custom Types for API Responses
 export type SeatWithReservation = Seat & {

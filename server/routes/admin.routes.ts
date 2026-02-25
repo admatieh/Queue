@@ -1,8 +1,8 @@
 import { Router } from "express";
 import * as adminController from "../controllers/admin.controller";
-import { requireAdmin } from "../middleware/auth.middleware";
+import * as superAdminController from "../controllers/super_admin.controller";
+import { requireAdmin, requireSuperAdmin, requireVenueAccess } from "../middleware/auth.middleware";
 import { upload } from "../middleware/upload.middleware";
-import { api } from "@shared/routes";
 import multer from "multer";
 
 const router = Router();
@@ -23,12 +23,30 @@ const handleUpload = (req: any, res: any, next: any) => {
     });
 };
 
-router.post(api.admin.createVenue.path, requireAdmin, adminController.createVenue);
-router.put(api.admin.updateVenue.path, requireAdmin, adminController.updateVenue);
-router.post(api.admin.createSeat.path, requireAdmin, adminController.createSeat);
-router.put(api.admin.updateSeat.path, requireAdmin, adminController.updateSeat);
-router.get(api.admin.listReservations.path, requireAdmin, adminController.listReservations);
-router.post(api.admin.cancelReservation.path, requireAdmin, adminController.cancelReservation);
-router.post(api.admin.uploadVenueImage.path, requireAdmin, handleUpload, adminController.uploadVenueImage);
+// === SUPER ADMIN ROUTES ===
+router.get("/users", requireSuperAdmin, superAdminController.listAdmins);
+router.post("/users", requireSuperAdmin, superAdminController.createAdmin);
+router.put("/users/:id", requireSuperAdmin, superAdminController.updateAdmin);
+router.delete("/users/:id", requireSuperAdmin, superAdminController.deleteAdmin);
+router.put("/users/:id/venues", requireSuperAdmin, superAdminController.assignVenuesToAdmin);
+router.get("/users/:id/venues", requireSuperAdmin, superAdminController.getAdminVenues);
+
+router.post("/venues", requireSuperAdmin, adminController.createVenue);
+router.delete("/venues/:id", requireSuperAdmin, adminController.deleteVenue); // We'll add this to controller next
+router.get("/audit-logs", requireSuperAdmin, superAdminController.listAuditLogs);
+
+// === VENUE ADMIN ROUTES ===
+// (Super Admins can also access these because of requireVenueAccess logic)
+router.get("/venues/me", requireAdmin, adminController.listMyVenues); // We'll add this
+router.put("/venues/:id", requireVenueAccess, adminController.updateVenue);
+router.post("/venues/:id/upload", requireVenueAccess, handleUpload, adminController.uploadVenueImage);
+
+router.post("/venues/:id/seats", requireVenueAccess, adminController.createSeat);
+router.put("/seats/:id", requireVenueAccess, adminController.updateSeat); // Seat ID in params, but requires venue ID logic check
+
+router.get("/venues/:id/reservations", requireVenueAccess, adminController.listReservations);
+router.post("/reservations/:id/cancel", requireAdmin, adminController.cancelReservation); // Needs reservation -> venue lookup check
+
+router.post("/venues/:id/notifications", requireVenueAccess, superAdminController.dispatchNotification);
 
 export default router;

@@ -1,6 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { api, buildUrl } from "@shared/routes";
-import { type InsertVenue, type InsertSeat } from "@shared/schema";
+import { type Venue, type InsertVenue, type InsertSeat } from "@shared/schema";
 
 export function useVenues() {
   return useQuery({
@@ -9,6 +9,34 @@ export function useVenues() {
       const res = await fetch(api.venues.list.path);
       if (!res.ok) throw new Error("Failed to fetch venues");
       return api.venues.list.responses[200].parse(await res.json());
+    },
+  });
+}
+
+export function useAdminVenues() {
+  return useQuery({
+    queryKey: ["/api/admin/venues/me"],
+    queryFn: async () => {
+      const res = await fetch("/api/admin/venues/me");
+      if (!res.ok) throw new Error("Failed to fetch admin venues");
+      return (await res.json()) as Venue[];
+    },
+  });
+}
+
+export function useDeleteVenue() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (id: string) => {
+      const res = await fetch(`/api/admin/venues/${id}`, {
+        method: "DELETE",
+        credentials: "omit" // Keeping default unless auth specifically fails
+      });
+      if (!res.ok) throw new Error("Failed to delete venue");
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/venues/me"] });
+      queryClient.invalidateQueries({ queryKey: [api.venues.list.path] });
     },
   });
 }
