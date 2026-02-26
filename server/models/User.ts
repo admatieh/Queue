@@ -6,6 +6,8 @@ export interface IUser extends Document {
     name?: string;
     role: "user" | "admin" | "super_admin";
     status: "active" | "disabled";
+    // venueId is required for admin users; super_admins and regular users leave it unset
+    venueId?: mongoose.Types.ObjectId | null;
     createdAt: Date;
     deletedAt?: Date | null;
     deletedBy?: string | null;
@@ -17,6 +19,8 @@ const UserSchema: Schema = new Schema({
     name: { type: String },
     role: { type: String, enum: ["user", "admin", "super_admin"], default: "user" },
     status: { type: String, enum: ["active", "disabled"], default: "active" },
+    // venueId: primary venue the admin manages (required for role=admin, optional otherwise)
+    venueId: { type: Schema.Types.ObjectId, ref: "Venue", default: null },
     createdAt: { type: Date, default: Date.now },
     deletedAt: { type: Date, default: null },
     deletedBy: { type: Schema.Types.ObjectId, ref: "User", default: null }
