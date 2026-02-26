@@ -1,6 +1,6 @@
 import { Router } from "express";
 import * as adminController from "../controllers/admin.controller";
-import { requireAdmin } from "../middleware/auth.middleware";
+import { requireAdmin } from "server/middleware/jwt.middleware";
 import { upload } from "../middleware/upload.middleware";
 import { api } from "@shared/routes";
 import multer from "multer";

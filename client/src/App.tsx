@@ -8,6 +8,8 @@ import AuthPage from "@/pages/auth-page";
 import VenuesPage from "@/pages/venues-page";
 import SeatMapPage from "@/pages/seat-map-page";
 import ReservationsPage from "@/pages/reservations-page";
+import { NotificationListener } from "@/components/NotificationListener";
+
 // Admin Pages (Assuming these are future implementations, redirecting to venues for now)
 
 function Router() {
@@ -30,7 +32,11 @@ function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <AuthProvider>
-        <Toaster />
+      <Toaster  />
+
+        {/* 🔔 ADD IT HERE */}
+        <NotificationListener />
+
         <Router />
       </AuthProvider>
     </QueryClientProvider>

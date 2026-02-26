@@ -3,9 +3,38 @@ import { registerRoutes } from "./routes/index";
 import { serveStatic } from "./config/static";
 import { createServer } from "http";
 import path from "path";
+import cookieParser from "cookie-parser";
+import { Server as SocketIOServer } from "socket.io";
 
-const app = express();
+const app = express(); // ✅ define app first
 const httpServer = createServer(app);
+
+//for real-time notifications
+const io = new SocketIOServer(httpServer, {
+  cors: {
+    origin: "*", // replace with frontend URL in production
+  },
+});
+
+// Export io so other files can use it
+export { io };
+io.on("connection", (socket) => {
+  console.log("User connected:", socket.id);
+
+  // Listen for user registering their ID
+  socket.on("register", (userId: string) => {
+    socket.join(userId); // creates a room per user
+    console.log(`User ${userId} joined room`);
+  });
+
+  socket.on("disconnect", () => {
+    console.log("User disconnected:", socket.id);
+  });
+});
+
+
+// --- MIDDLEWARES ---
+app.use(cookieParser());
 
 declare module "http" {
   interface IncomingMessage {
@@ -23,6 +52,7 @@ app.use(
 
 app.use(express.urlencoded({ extended: false }));
 
+// --- LOGGING HELPER ---
 export function log(message: string, source = "express") {
   const formattedTime = new Date().toLocaleTimeString("en-US", {
     hour: "numeric",
@@ -30,10 +60,10 @@ export function log(message: string, source = "express") {
     second: "2-digit",
     hour12: true,
   });
-
   console.log(`${formattedTime} [${source}] ${message}`);
 }
 
+// --- REQUEST LOGGER ---
 app.use((req, res, next) => {
   const start = Date.now();
   const path = req.path;
@@ -52,7 +82,6 @@ app.use((req, res, next) => {
       if (capturedJsonResponse) {
         logLine += ` :: ${JSON.stringify(capturedJsonResponse)}`;
       }
-
       log(logLine);
     }
   });
@@ -60,37 +89,34 @@ app.use((req, res, next) => {
   next();
 });
 
+// --- MAIN STARTUP ---
 (async () => {
   // Database connection
   const { connectMongo } = await import("./db/mongo");
   await connectMongo();
 
-  // Serve uploaded images statically
+  // Serve uploaded images
   app.use("/uploads", express.static(path.resolve(process.cwd(), "uploads")));
 
-  // Expiry check cron (every 60s)
+  // Expiry cron job every 60s
   const { storage } = await import("./services/storage.service");
   setInterval(() => {
     storage.expireReservations().catch(err => console.error("Expiry job failed:", err));
   }, 60000);
 
+  // Register routes
   await registerRoutes(httpServer, app);
 
-  // Server-wide error handler
+  // Global error handler
   const { errorHandler } = await import("./middleware/error.middleware");
   app.use(errorHandler);
 
-  // importantly only setup vite in development and after
-  // setting up all the other routes so the catch-all route
-  // doesn't interfere with the other routes
+  // Serve frontend static files in production
   if (app.get("env") === "production") {
     serveStatic(app);
   }
 
-  // ALWAYS serve the app on the port specified in the environment variable PORT
-  // Other ports are firewalled. Default to 5000 if not specified.
-  // this serves both the API and the client.
-  // It is the only port that is not firewalled.
+  // Start server
   const port = parseInt(process.env.PORT || "5000", 10);
   httpServer.listen(
     {

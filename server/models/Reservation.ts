@@ -15,7 +15,7 @@ const ReservationSchema: Schema = new Schema({
     userId: { type: Schema.Types.ObjectId, ref: "User", required: true },
     venueId: { type: Schema.Types.ObjectId, ref: "Venue", required: true },
     seatId: { type: Schema.Types.ObjectId, ref: "Seat", required: true },
-    startTime: { type: Date, default: Date.now },
+    startTime: { type: Date, required: true },
     endTime: { type: Date, required: true },
     durationMinutes: { type: Number, required: true },
     status: { type: String, enum: ["active", "expired", "cancelled"], default: "active" },

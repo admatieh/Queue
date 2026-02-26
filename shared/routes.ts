@@ -96,7 +96,9 @@ export const api = {
       input: z.object({
         venueId: z.string(),
         seatId: z.string(),
-        durationMinutes: z.enum(["15", "30", "45"]).transform(Number),
+        startTime: z.string(), // ISO string from frontend
+  endTime: z.string(),   // ISO string from frontend
+
       }),
       responses: {
         201: z.custom<Reservation>(),

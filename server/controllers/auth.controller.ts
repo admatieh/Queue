@@ -1,48 +1,90 @@
 import { Request, Response, NextFunction } from "express";
-import passport from "passport";
 import { storage } from "../services/storage.service";
-import { hashPassword } from "../utils/crypto";
+import { hashPassword, comparePasswords } from "../utils/crypto";
+import jwt from "jsonwebtoken";
 
-export const register = async (req: Request, res: Response, next: NextFunction) => {
-    try {
-        const existingUser = await storage.getUserByEmail(req.body.email);
-        if (existingUser) {
-            return res.status(409).send("Email already in use");
-        }
+const generateToken = (user: any) =>
+  jwt.sign(
+    { id: user.id, role: user.role },
+    process.env.JWT_SECRET as string,
+    { expiresIn: "1d" }
+  );
 
-        const hashedPassword = await hashPassword(req.body.password);
-        const user = await storage.createUser({
-            ...req.body,
-            password: hashedPassword,
-        });
+// --- LOGIN ---
+export const login = async (req: Request, res: Response) => {
+  const { email, password } = req.body;
 
-        req.login(user, (err) => {
-            if (err) return next(err);
-            res.status(201).json(user);
-        });
-    } catch (err) {
-        next(err);
+  const user = await storage.getUserByEmail(email);
+  if (!user || !(await comparePasswords(password, user.password as string))) {
+    return res.status(401).json({ message: "Invalid credentials" });
+  }
+
+  const token = generateToken(user);
+
+  res.cookie("token", token, {
+    httpOnly: true,
+    secure: false, // true in production (HTTPS)
+    sameSite: "lax",
+  });
+
+  res.json({ user });
+};
+
+// --- REGISTER ---
+export const register = async (req: Request, res: Response) => {
+  const existingUser = await storage.getUserByEmail(req.body.email);
+  if (existingUser) {
+    return res.status(409).json({ message: "Email already exists" });
+  }
+
+  const hashed = await hashPassword(req.body.password);
+  const user = await storage.createUser({
+    ...req.body,
+    password: hashed,
+  });
+
+  const token = generateToken(user);
+
+  res.cookie("token", token, {
+    httpOnly: true,
+    secure: false,
+    sameSite: "lax",
+  });
+
+  res.status(201).json({ user });
+};
+
+// --- LOGOUT ---
+export const logout = (_req: Request, res: Response) => {
+  res.clearCookie("token");
+  res.sendStatus(200);
+};
+
+// --- ME ---
+export const me = (req: any, res: Response) => {
+  if (!req.user) return res.status(401).json({ message: "Not authenticated" });
+  res.json(req.user);
+};
+export const createAdmin = async (req: any, res: Response) => {
+  try {
+    const { email, password, ...rest } = req.body;
+
+    const existingUser = await storage.getUserByEmail(email);
+    if (existingUser) {
+      return res.status(409).json({ message: "Email already exists" });
     }
-};
 
-export const login = (req: Request, res: Response, next: NextFunction) => {
-    passport.authenticate("local", (err: any, user: any, info: any) => {
-        if (err) return next(err);
-        if (!user) return res.status(401).send(info?.message || "Login failed");
-        req.login(user, (err) => {
-            if (err) return next(err);
-            res.status(200).json(user);
-        });
-    })(req, res, next);
-};
+    const hashed = await hashPassword(password);
 
-export const logout = (req: Request, res: Response, next: NextFunction) => {
-    req.logout((err) => {
-        if (err) return next(err);
-        res.sendStatus(200);
+    const user = await storage.createUser({
+      ...rest,
+      email,
+      password: hashed,
+      role: "admin",
     });
-};
 
-export const me = (req: Request, res: Response) => {
-    res.json(req.user);
+    res.status(201).json({ user });
+  } catch (error) {
+    res.status(500).json({ message: "Failed to create admin" });
+  }
 };

@@ -72,22 +72,30 @@ export type Seat = {
 export type InsertSeat = z.infer<typeof insertSeatSchema>;
 
 // === RESERVATIONS ===
+
 export const insertReservationSchema = z.object({
-    venueId: z.string(),
-    seatId: z.string(),
-    durationMinutes: z.number().min(1),
+  venueId: z.string(),
+  seatId: z.string(),
+  startTime: z.string().refine(val => !isNaN(Date.parse(val)), {
+    message: "Invalid start time",
+  }).transform(val => new Date(val)), // <-- transform to Date
+  endTime: z.string().refine(val => !isNaN(Date.parse(val)), {
+    message: "Invalid end time",
+  }).transform(val => new Date(val)), // <-- transform to Date
+  // Optional: still include durationMinutes if your frontend sends it
+  durationMinutes: z.number().min(1).optional(),
 });
 
 export type Reservation = {
-    id: string;
-    userId: string;
-    venueId: string;
-    seatId: string;
-    startTime: string;
-    endTime: string;
-    durationMinutes: number;
-    status: "active" | "expired" | "cancelled";
-    createdAt: string;
+  id: string;
+  userId: string;
+  venueId: string;
+  seatId: string;
+  startTime: string;
+  endTime: string;
+  durationMinutes: number;
+  status: "active" | "expired" | "cancelled";
+  createdAt: string;
 };
 
 export type InsertReservation = z.infer<typeof insertReservationSchema>;

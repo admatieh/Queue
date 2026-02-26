@@ -29,12 +29,12 @@ export interface IStorage {
   updateSeat(id: string, seat: Partial<InsertSeat>): Promise<Seat>;
 
   // Reservations
-  createReservation(reservation: InsertReservation & { userId: string, endTime: Date }): Promise<Reservation>;
-  getActiveReservationsByUser(userId: string): Promise<(Reservation & { venueName: string; seatRow: string; seatCol: string })[]>;
+createReservation(reservation: InsertReservation & { userId: string, startTime: Date, endTime: Date, durationMinutes: number }): Promise<Reservation>;  getActiveReservationsByUser(userId: string): Promise<(Reservation & { venueName: string; seatRow: string; seatCol: string })[]>;
   getActiveReservationForSeat(seatId: string): Promise<Reservation | undefined>;
   cancelReservation(id: string): Promise<Reservation | undefined>;
   getReservationsByVenue(venueId: string): Promise<(Reservation & { userName: string; userEmail: string })[]>;
   expireReservations(): Promise<void>;
+  getOverlappingReservation(seatId: string, start: Date, end: Date): Promise<IReservation | null>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -78,18 +78,22 @@ export class DatabaseStorage implements IStorage {
   }
 
   private mapReservation(doc: IReservation): Reservation {
+    if (!doc) {
+        console.error("mapReservation got undefined doc");
+        throw new Error("Reservation document is undefined");
+    }
     return {
       id: doc._id.toString(),
-      userId: doc.userId.toString(),
-      venueId: doc.venueId.toString(),
-      seatId: doc.seatId.toString(),
+      userId: doc.userId?.toString() ?? "",
+      venueId: doc.venueId?.toString() ?? "",
+      seatId: doc.seatId?.toString() ?? "",
       startTime: doc.startTime.toISOString(),
       endTime: doc.endTime.toISOString(),
       durationMinutes: doc.durationMinutes,
       status: doc.status,
       createdAt: doc.createdAt.toISOString()
     };
-  }
+}
 
   async getUser(id: string): Promise<User | undefined> {
     if (!mongoose.Types.ObjectId.isValid(id)) return undefined;
@@ -207,19 +211,20 @@ export class DatabaseStorage implements IStorage {
     return this.mapSeat(updated);
   }
 
-  async createReservation(res: InsertReservation & { userId: string, endTime: Date }): Promise<Reservation> {
-    // Atomic claim logic will be handled here or in routes
-    // For storage, we just create the document
-    const reservation = new ReservationModel({
+  async createReservation(res: InsertReservation & { userId: string, startTime: Date, endTime: Date, durationMinutes: number }): Promise<Reservation> {
+  const reservation = new ReservationModel({
+
       userId: res.userId,
       venueId: res.venueId,
       seatId: res.seatId,
-      durationMinutes: res.durationMinutes,
+      startTime: res.startTime,  
       endTime: res.endTime,
+      durationMinutes: res.durationMinutes,
       status: "active"
     });
     await reservation.save();
 
+  
     // Update seat to link back
     await SeatModel.findByIdAndUpdate(res.seatId, {
       status: "occupied", // or "reserved"
@@ -255,6 +260,18 @@ export class DatabaseStorage implements IStorage {
     });
     return res ? this.mapReservation(res) : undefined;
   }
+  async getOverlappingReservation(seatId: string, start: Date, end: Date) {
+    return ReservationModel.findOne({
+        seatId,
+        status: "active",
+        $or: [
+            {
+                startTime: { $lt: end },
+                endTime: { $gt: start }
+            }
+        ]
+    });
+}
 
   async cancelReservation(id: string): Promise<Reservation | undefined> {
     const reservation = await ReservationModel.findById(id);
@@ -306,5 +323,6 @@ export class DatabaseStorage implements IStorage {
     }
   }
 }
+
 
 export const storage = new DatabaseStorage();

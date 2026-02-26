@@ -17,9 +17,19 @@ import { Loader2, Armchair, Users, Clock, Info } from "lucide-react";
 import { format } from "date-fns";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
+import DatePicker from "react-datepicker";
+import "react-datepicker/dist/react-datepicker.css";
 
 // --- Types ---
 type SeatStatus = "available" | "occupied" | "reserved" | "disabled" | "selected";
+
+// New reservation input type
+type ReservationInput = {
+  venueId: string;
+  seatId: string;
+  startTime: string; // ISO string
+  endTime: string;   // ISO string
+};
 
 // --- Components ---
 
@@ -57,7 +67,8 @@ export default function SeatMapPage() {
 
   const [selectedSeatId, setSelectedSeatId] = useState<string | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [duration, setDuration] = useState("30");
+  const [startTime, setStartTime] = useState<Date | null>(null);
+  const [endTime, setEndTime] = useState<Date | null>(null);
 
   const isLoading = isVenueLoading || isSeatsLoading;
 
@@ -67,9 +78,8 @@ export default function SeatMapPage() {
       return { rows: [] as string[], cols: [] as string[], seatMap: [] as any[] };
     }
 
-    // Determine unique rows and cols
-    const rows = Array.from(new Set(seatData.seats.map(s => s.row))).sort();
-    const cols = Array.from(new Set(seatData.seats.map(s => s.col))).sort((a, b) => Number(a) - Number(b));
+    const rows = Array.from(new Set(seatData.seats.map((s: any) => s.row))).sort();
+    const cols = Array.from(new Set(seatData.seats.map((s: any) => s.col))).sort((a, b) => Number(a) - Number(b));
 
     return { rows, cols, seatMap: seatData.seats };
   }, [seatData]);
@@ -84,36 +94,57 @@ export default function SeatMapPage() {
   const handleConfirmReservation = () => {
     if (!selectedSeatId) return;
 
-    createReservation.mutate(
-      {
-        venueId,
-        seatId: selectedSeatId,
-        durationMinutes: Number(duration)
+    if (!startTime || !endTime) {
+      toast({
+        title: "Missing Time",
+        description: "Please select start and end time.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (startTime >= endTime) {
+      toast({
+        title: "Invalid Time",
+        description: "End time must be after start time.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    // Prepare reservation object
+    const reservation: ReservationInput = {
+      venueId,
+      seatId: selectedSeatId,
+      startTime: startTime.toISOString(),
+      endTime: endTime.toISOString(),
+    };
+
+    createReservation.mutate(reservation, {
+      onSuccess: () => {
+        toast({
+          title: "Reservation Confirmed!",
+          description: `Seat reserved from ${format(startTime, "PPP p")} to ${format(endTime, "PPP p")}`,
+        });
+
+        setIsModalOpen(false);
+        setSelectedSeatId(null);
+        setStartTime(null);
+        setEndTime(null);
       },
-      {
-        onSuccess: () => {
-          toast({
-            title: "Reservation Confirmed!",
-            description: `You have reserved seat ${selectedSeatId} for ${duration} minutes.`,
-          });
-          setIsModalOpen(false);
-          setSelectedSeatId(null);
-        },
-        onError: (err) => {
-          toast({
-            title: "Booking Failed",
-            description: err.message,
-            variant: "destructive",
-          });
-          setIsModalOpen(false);
-        }
-      }
-    );
+      onError: (err: any) => {
+        toast({
+          title: "Booking Failed",
+          description: err?.message || "Something went wrong",
+          variant: "destructive",
+        });
+      },
+    });
   };
 
   const getSeatStatusColor = (seat: any): string => {
     if (selectedSeatId === seat.id) return "bg-primary text-primary-foreground scale-110 shadow-lg ring-2 ring-primary ring-offset-2 ring-offset-background";
-    if (seat.status === "disabled") return "opacity-0 pointer-events-none"; // Hide disabled seats or make them invisible
+    if (seat.status === "disabled") return "opacity-0 pointer-events-none";
     if (seat.status === "occupied") return "bg-gray-200 dark:bg-gray-800 text-gray-400 cursor-not-allowed";
     if (seat.isReserved) return "bg-rose-500/10 text-rose-500 border-2 border-rose-500/20 cursor-not-allowed";
     return "bg-emerald-500/10 text-emerald-600 border-2 border-emerald-500/20 hover:bg-emerald-500 hover:text-white hover:border-emerald-500 cursor-pointer hover:shadow-md hover:-translate-y-1";
@@ -145,7 +176,6 @@ export default function SeatMapPage() {
         </div>
 
         <div className="bg-card rounded-2xl border shadow-sm p-8 min-h-[500px] flex flex-col items-center justify-center relative overflow-hidden">
-          {/* Decorative Elements */}
           <div className="absolute top-0 left-0 w-full h-2 bg-gradient-to-r from-transparent via-primary/20 to-transparent" />
 
           <div className="mb-12 w-full max-w-md text-center">
@@ -155,22 +185,19 @@ export default function SeatMapPage() {
 
           <div
             className="grid gap-4 mx-auto p-4 overflow-auto max-w-full"
-            style={{
-              gridTemplateColumns: `repeat(${grid.cols.length}, minmax(3rem, 1fr))`
-            }}
+            style={{ gridTemplateColumns: `repeat(${grid.cols.length}, minmax(3rem, 1fr))` }}
           >
-            {/* We map strictly by row/col to keep grid structure intact */}
-            {grid.rows.map((row) => (
+            {grid.rows.map((row) =>
               grid.cols.map((col) => {
-                const seat = grid.seatMap.find(s => s.row === row && s.col === col);
+                const seat = grid.seatMap.find((s: any) => s.row === row && s.col === col);
 
-                if (!seat) return <div key={`${row}-${col}`} className="w-12 h-12" />; // Spacer
+                if (!seat) return <div key={`${row}-${col}`} className="w-12 h-12" />;
 
                 return (
                   <button
                     key={seat.id}
                     onClick={() => handleSeatClick(seat)}
-                    disabled={seat.status !== "available" && !seat.isReserved} // Logic handled in click handler too
+                    disabled={seat.status !== "available" && !seat.isReserved}
                     className={cn(
                       "w-12 h-12 rounded-xl flex items-center justify-center text-sm font-bold transition-all duration-200 seat-enter",
                       getSeatStatusColor(seat)
@@ -181,7 +208,7 @@ export default function SeatMapPage() {
                   </button>
                 );
               })
-            ))}
+            )}
           </div>
         </div>
       </div>
@@ -196,25 +223,37 @@ export default function SeatMapPage() {
           </DialogHeader>
 
           <div className="grid gap-4 py-4">
-            <div className="grid grid-cols-4 items-center gap-4">
-              <label htmlFor="duration" className="text-right text-sm font-medium">
-                Duration
-              </label>
-              <Select value={duration} onValueChange={setDuration}>
-                <SelectTrigger className="col-span-3">
-                  <SelectValue placeholder="Select duration" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="15">15 Minutes</SelectItem>
-                  <SelectItem value="30">30 Minutes</SelectItem>
-                  <SelectItem value="45">45 Minutes</SelectItem>
-                </SelectContent>
-              </Select>
+            <div className="flex flex-col gap-2">
+              <label className="text-sm font-medium">Start Time</label>
+              <DatePicker
+                selected={startTime}
+                onChange={(date: Date | null) => setStartTime(date)}
+                showTimeSelect
+                timeIntervals={15}
+                dateFormat="Pp"
+                minDate={new Date()}
+                placeholderText="Select start date & time"
+                className="w-full border rounded-md px-3 py-2"
+              />
+            </div>
+
+            <div className="flex flex-col gap-2">
+              <label className="text-sm font-medium">End Time</label>
+              <DatePicker
+                selected={endTime}
+                onChange={(date: Date | null) => setEndTime(date)}
+                showTimeSelect
+                timeIntervals={15}
+                dateFormat="Pp"
+                minDate={startTime || new Date()}
+                placeholderText="Select end date & time"
+                className="w-full border rounded-md px-3 py-2"
+              />
             </div>
 
             <div className="bg-muted/50 p-4 rounded-lg text-sm text-muted-foreground flex items-start gap-2">
               <Info className="w-4 h-4 mt-0.5 text-primary" />
-              <p>Reservations auto-expire. Please check in within 5 minutes of start time.</p>
+              <p>Please select a valid time range within venue hours.</p>
             </div>
           </div>
 
