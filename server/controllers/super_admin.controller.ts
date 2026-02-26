@@ -4,6 +4,7 @@ import { VenueModel } from "../models/Venue";
 import { AdminVenueAssignmentModel } from "../models/AdminVenueAssignment";
 import { AuditLogModel } from "../models/AuditLog";
 import { storage } from "../services/storage.service";
+import { insertAdminSchema, updateAdminSchema } from "@shared/schema";
 import { z } from "zod";
 import mongoose from "mongoose";
 import bcrypt from "bcrypt";
@@ -19,12 +20,6 @@ export async function logAudit(actorId: string, action: string, targetType: stri
     });
 }
 
-const createAdminSchema = z.object({
-    email: z.string().email(),
-    password: z.string().min(8), // Strong password enforced
-    name: z.string().optional(),
-    role: z.enum(["admin", "super_admin"]).default("admin"),
-});
 
 export const listAdmins = async (req: Request, res: Response) => {
     const page = parseInt(req.query.page as string) || 1;
@@ -50,48 +45,105 @@ export const listAdmins = async (req: Request, res: Response) => {
 };
 
 export const createAdmin = async (req: Request, res: Response) => {
-    const input = createAdminSchema.parse(req.body);
-    const actor = req.user as any;
+    try {
+        const input = insertAdminSchema.parse(req.body);
+        const actor = req.user as any;
 
-    if (input.role === "super_admin" && actor.role !== "super_admin") {
-        return res.status(403).json({ message: "Only Super Admins can create other Super Admins" });
+        if (input.role === "super_admin" && actor.role !== "super_admin") {
+            return res.status(403).json({ message: "Only Super Admins can create other Super Admins" });
+        }
+
+        // venueId is required for admin role (enforced by insertAdminSchema, but double-check)
+        if (input.role === "admin" && !input.venueId) {
+            return res.status(400).json({ message: "Venue assignment is required for admin users" });
+        }
+
+        if (input.venueId) {
+            const venue = await VenueModel.findById(input.venueId);
+            if (!venue) return res.status(400).json({ message: "Selected venue does not exist" });
+        }
+
+        const existing = await UserModel.findOne({ email: input.email });
+        if (existing) {
+            return res.status(409).json({ message: "Email already in use" });
+        }
+
+        const passwordHash = await bcrypt.hash(input.password, 10);
+        const newAdmin = await UserModel.create({
+            email: input.email,
+            passwordHash,
+            name: input.name,
+            role: input.role,
+            status: "active",
+            venueId: input.venueId || null,
+        });
+
+        // Also create AdminVenueAssignment for access-control if venueId provided
+        if (input.venueId) {
+            await AdminVenueAssignmentModel.create({
+                adminId: newAdmin.id,
+                venueId: input.venueId,
+                assignedBy: actor.id,
+            });
+        }
+
+        await logAudit(actor.id, "CREATE_ADMIN", "user", newAdmin.id, { email: input.email, role: input.role, venueId: input.venueId });
+        res.status(201).json({ id: newAdmin.id, email: newAdmin.email, role: newAdmin.role, venueId: newAdmin.venueId });
+    } catch (err) {
+        if (err instanceof z.ZodError) {
+            return res.status(400).json({ message: err.errors[0].message, issues: err.errors });
+        }
+        throw err;
     }
-
-    const existing = await UserModel.findOne({ email: input.email });
-    if (existing) {
-        return res.status(409).json({ message: "Email already in use" });
-    }
-
-    const passwordHash = await bcrypt.hash(input.password, 10);
-    const newAdmin = await UserModel.create({
-        email: input.email,
-        passwordHash,
-        name: input.name,
-        role: input.role,
-        status: "active"
-    });
-
-    await logAudit(actor.id, "CREATE_ADMIN", "user", newAdmin.id, { email: input.email, role: input.role });
-    res.status(201).json({ id: newAdmin.id, email: newAdmin.email, role: newAdmin.role });
 };
 
 export const updateAdmin = async (req: Request, res: Response) => {
-    const adminId = req.params.id;
-    const { status, name } = req.body;
-    const actor = req.user as any;
+    try {
+        const adminId = req.params.id;
+        const input = updateAdminSchema.parse(req.body);
+        const actor = req.user as any;
 
-    if (!mongoose.Types.ObjectId.isValid(adminId)) return res.status(400).json({ message: "Invalid ID" });
+        if (!mongoose.Types.ObjectId.isValid(adminId)) return res.status(400).json({ message: "Invalid ID" });
 
-    const updated = await UserModel.findByIdAndUpdate(
-        adminId,
-        { $set: { status, name } },
-        { new: true }
-    ).select("-passwordHash");
+        // If venueId is being set, validate it exists
+        if (input.venueId) {
+            const venue = await VenueModel.findById(input.venueId);
+            if (!venue) return res.status(400).json({ message: "Selected venue does not exist" });
+        }
 
-    if (!updated) return res.status(404).json({ message: "Admin not found" });
+        const updateFields: any = {};
+        if (input.status !== undefined) updateFields.status = input.status;
+        if (input.name !== undefined) updateFields.name = input.name;
+        if (input.venueId !== undefined) updateFields.venueId = input.venueId;
 
-    await logAudit(actor.id, "UPDATE_ADMIN", "user", adminId, { status, name });
-    res.json(updated);
+        const updated = await UserModel.findByIdAndUpdate(
+            adminId,
+            { $set: updateFields },
+            { new: true }
+        ).select("-passwordHash");
+
+        if (!updated) return res.status(404).json({ message: "Admin not found" });
+
+        // Sync AdminVenueAssignment if venueId changed
+        if (input.venueId !== undefined) {
+            await AdminVenueAssignmentModel.deleteMany({ adminId });
+            if (input.venueId) {
+                await AdminVenueAssignmentModel.create({
+                    adminId,
+                    venueId: input.venueId,
+                    assignedBy: actor.id,
+                });
+            }
+        }
+
+        await logAudit(actor.id, "UPDATE_ADMIN", "user", adminId, updateFields);
+        res.json(updated);
+    } catch (err) {
+        if (err instanceof z.ZodError) {
+            return res.status(400).json({ message: err.errors[0].message, issues: err.errors });
+        }
+        throw err;
+    }
 };
 
 export const deleteAdmin = async (req: Request, res: Response) => {

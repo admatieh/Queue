@@ -45,6 +45,7 @@ export class DatabaseStorage implements IStorage {
       name: doc.name,
       role: doc.role,
       status: doc.status,
+      venueId: doc.venueId ? doc.venueId.toString() : null,
       createdAt: doc.createdAt.toISOString(),
       deletedAt: doc.deletedAt?.toISOString() || null,
       deletedBy: doc.deletedBy ? doc.deletedBy.toString() : null

@@ -51,12 +51,23 @@ export const createVenue = async (req: Request, res: Response) => {
 };
 
 export const updateVenue = async (req: Request, res: Response) => {
-    const venueId = req.params.id;
-    const input = api.admin.updateVenue.input.parse(req.body);
-    const actor = req.user as any;
-    const updated = await storage.updateVenue(venueId, input);
-    await logAudit(actor.id, "UPDATE_VENUE", "venue", venueId, input);
-    res.json(updated);
+    try {
+        const venueId = req.params.id;
+        const input = api.admin.updateVenue.input.parse(req.body);
+        const actor = req.user as any;
+        const updated = await storage.updateVenue(venueId, input);
+        await logAudit(actor.id, "UPDATE_VENUE", "venue", venueId, input);
+        res.json(updated);
+    } catch (err) {
+        if (err instanceof z.ZodError) {
+            return res.status(400).json({ message: err.errors[0].message, issues: err.errors });
+        }
+        const e = err as any;
+        if (e.name === "ValidationError") {
+            return res.status(400).json({ message: e.message });
+        }
+        throw err;
+    }
 };
 
 export const deleteVenue = async (req: Request, res: Response) => {
@@ -75,21 +86,48 @@ export const deleteVenue = async (req: Request, res: Response) => {
 };
 
 export const createSeat = async (req: Request, res: Response) => {
-    const venueId = req.params.id;
-    const input = api.admin.createSeat.input.parse(req.body);
-    const actor = req.user as any;
-    const seat = await storage.createSeat({ ...input, venueId });
-    await logAudit(actor.id, "CREATE_SEAT", "seat", seat.id, { venueId, label: seat.label });
-    res.status(201).json(seat);
+    try {
+        const venueId = req.params.id;
+        const input = api.admin.createSeat.input.parse(req.body);
+        const actor = req.user as any;
+        const seat = await storage.createSeat({ ...input, venueId });
+        await logAudit(actor.id, "CREATE_SEAT", "seat", seat.id, { venueId, label: seat.label });
+        res.status(201).json(seat);
+    } catch (err) {
+        if (err instanceof z.ZodError) {
+            return res.status(400).json({ message: err.errors[0].message, issues: err.errors });
+        }
+        const e = err as any;
+        if (e.name === "ValidationError") {
+            // Mongoose validation error — could be duplicate label, missing required field, etc.
+            return res.status(400).json({ message: e.message });
+        }
+        if (e.code === 11000) {
+            // MongoDB duplicate key (e.g., duplicate label in the same venue)
+            return res.status(409).json({ message: "A seat with this label already exists in this venue." });
+        }
+        throw err;
+    }
 };
 
 export const updateSeat = async (req: Request, res: Response) => {
-    const seatId = req.params.id;
-    const input = api.admin.updateSeat.input.parse(req.body);
-    const actor = req.user as any;
-    const updated = await storage.updateSeat(seatId, input);
-    await logAudit(actor.id, "UPDATE_SEAT", "seat", seatId, input);
-    res.json(updated);
+    try {
+        const seatId = req.params.id;
+        const input = api.admin.updateSeat.input.parse(req.body);
+        const actor = req.user as any;
+        const updated = await storage.updateSeat(seatId, input);
+        await logAudit(actor.id, "UPDATE_SEAT", "seat", seatId, input);
+        res.json(updated);
+    } catch (err) {
+        if (err instanceof z.ZodError) {
+            return res.status(400).json({ message: err.errors[0].message, issues: err.errors });
+        }
+        const e = err as any;
+        if (e.name === "ValidationError") {
+            return res.status(400).json({ message: e.message });
+        }
+        throw err;
+    }
 };
 
 export const listReservations = async (req: Request, res: Response) => {

@@ -9,6 +9,30 @@ export const insertUserSchema = z.object({
     status: z.enum(["active", "disabled"]).default("active"),
 });
 
+// Admin-specific schemas (used by super-admin endpoints)
+export const insertAdminSchema = z.object({
+    email: z.string().email(),
+    password: z.string().min(8),
+    name: z.string().optional(),
+    role: z.enum(["admin", "super_admin"]).default("admin"),
+    // venueId required for role=admin, optional for super_admin
+    venueId: z.string().optional(),
+}).superRefine((data, ctx) => {
+    if (data.role === "admin" && !data.venueId) {
+        ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            path: ["venueId"],
+            message: "Venue is required for admin users",
+        });
+    }
+});
+
+export const updateAdminSchema = z.object({
+    name: z.string().optional(),
+    status: z.enum(["active", "disabled"]).optional(),
+    venueId: z.string().nullable().optional(),
+});
+
 export type User = {
     id: string; // MongoDB _id
     email: string;
@@ -16,6 +40,7 @@ export type User = {
     name?: string;
     role: "user" | "admin" | "super_admin";
     status: "active" | "disabled";
+    venueId?: string | null; // primary venue for admin users
     createdAt: string;
     deletedAt?: string | null;
     deletedBy?: string | null;
