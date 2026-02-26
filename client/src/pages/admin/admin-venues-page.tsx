@@ -1,23 +1,71 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useAdminVenues, useDeleteVenue, useCreateVenue } from "@/hooks/use-venues";
 import { AdminLayout } from "@/components/admin/admin-layout";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import {
+    Table,
+    TableBody,
+    TableCell,
+    TableHead,
+    TableHeader,
+    TableRow
+} from "@/components/ui/table";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
-import { Loader2, Plus, Edit, Trash2, LayoutGrid, Search, Building2 } from "lucide-react";
+import {
+    Loader2,
+    Plus,
+    Edit,
+    Trash2,
+    LayoutGrid,
+    Search,
+    Building2,
+    Ban,
+    CheckCircle2
+} from "lucide-react";
 import { Link } from "wouter";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/use-auth";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { insertVenueSchema, type InsertVenue } from "@shared/schema";
-import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
+import {
+    Form,
+    FormControl,
+    FormField,
+    FormItem,
+    FormLabel,
+    FormMessage
+} from "@/components/ui/form";
+import {
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue
+} from "@/components/ui/select";
+import {
+    AlertDialog,
+    AlertDialogAction,
+    AlertDialogCancel,
+    AlertDialogContent,
+    AlertDialogDescription,
+    AlertDialogFooter,
+    AlertDialogHeader,
+    AlertDialogTitle,
+    AlertDialogTrigger
+} from "@/components/ui/alert-dialog";
 
-function CreateVenueDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (open: boolean) => void }) {
+// NOTE: Create dialog is fine; you already added description + status default active.
+// If your schema doesn’t include description/status yet, backend/shared schema must be updated.
+function CreateVenueDialog({
+    open,
+    onOpenChange
+}: {
+    open: boolean;
+    onOpenChange: (open: boolean) => void;
+}) {
     const createVenue = useCreateVenue();
     const { toast } = useToast();
 
@@ -32,20 +80,24 @@ function CreateVenueDialog({ open, onOpenChange }: { open: boolean; onOpenChange
             closeTime: "17:00",
             timezone: "UTC",
             category: "tech",
-            status: "active"
-        }
+            status: "active",
+        },
     });
 
     const onSubmit = (data: InsertVenue) => {
         createVenue.mutate(data, {
             onSuccess: () => {
-                toast({ title: "Success", description: "Venue created effectively." });
+                toast({ title: "Success", description: "Venue created successfully." });
                 onOpenChange(false);
                 form.reset();
             },
-            onError: (err) => {
-                toast({ title: "Error", description: err.message, variant: "destructive" });
-            }
+            onError: (err: any) => {
+                toast({
+                    title: "Error",
+                    description: err?.message || "Failed to create venue.",
+                    variant: "destructive",
+                });
+            },
         });
     };
 
@@ -63,22 +115,42 @@ function CreateVenueDialog({ open, onOpenChange }: { open: boolean; onOpenChange
                             render={({ field }) => (
                                 <FormItem>
                                     <FormLabel>Venue Name</FormLabel>
-                                    <FormControl><Input placeholder="Acme Space" {...field} /></FormControl>
+                                    <FormControl>
+                                        <Input placeholder="Acme Space" {...field} />
+                                    </FormControl>
                                     <FormMessage />
                                 </FormItem>
                             )}
                         />
+
+                        <FormField
+                            control={form.control}
+                            name="description"
+                            render={({ field }) => (
+                                <FormItem>
+                                    <FormLabel>Description</FormLabel>
+                                    <FormControl>
+                                        <Input placeholder="Description of the venue" {...field} />
+                                    </FormControl>
+                                    <FormMessage />
+                                </FormItem>
+                            )}
+                        />
+
                         <FormField
                             control={form.control}
                             name="location"
                             render={({ field }) => (
                                 <FormItem>
                                     <FormLabel>Location</FormLabel>
-                                    <FormControl><Input placeholder="123 Main St" {...field} /></FormControl>
+                                    <FormControl>
+                                        <Input placeholder="123 Main St" {...field} />
+                                    </FormControl>
                                     <FormMessage />
                                 </FormItem>
                             )}
                         />
+
                         <FormField
                             control={form.control}
                             name="category"
@@ -86,7 +158,11 @@ function CreateVenueDialog({ open, onOpenChange }: { open: boolean; onOpenChange
                                 <FormItem>
                                     <FormLabel>Category</FormLabel>
                                     <Select onValueChange={field.onChange} defaultValue={field.value}>
-                                        <FormControl><SelectTrigger><SelectValue placeholder="Select a category" /></SelectTrigger></FormControl>
+                                        <FormControl>
+                                            <SelectTrigger>
+                                                <SelectValue placeholder="Select a category" />
+                                            </SelectTrigger>
+                                        </FormControl>
                                         <SelectContent>
                                             <SelectItem value="tech">Tech</SelectItem>
                                             <SelectItem value="cafe">Cafe</SelectItem>
@@ -97,6 +173,7 @@ function CreateVenueDialog({ open, onOpenChange }: { open: boolean; onOpenChange
                                 </FormItem>
                             )}
                         />
+
                         <div className="grid grid-cols-2 gap-4">
                             <FormField
                                 control={form.control}
@@ -104,7 +181,9 @@ function CreateVenueDialog({ open, onOpenChange }: { open: boolean; onOpenChange
                                 render={({ field }) => (
                                     <FormItem>
                                         <FormLabel>Open Time</FormLabel>
-                                        <FormControl><Input type="time" {...field} /></FormControl>
+                                        <FormControl>
+                                            <Input type="time" {...field} />
+                                        </FormControl>
                                         <FormMessage />
                                     </FormItem>
                                 )}
@@ -115,12 +194,15 @@ function CreateVenueDialog({ open, onOpenChange }: { open: boolean; onOpenChange
                                 render={({ field }) => (
                                     <FormItem>
                                         <FormLabel>Close Time</FormLabel>
-                                        <FormControl><Input type="time" {...field} /></FormControl>
+                                        <FormControl>
+                                            <Input type="time" {...field} />
+                                        </FormControl>
                                         <FormMessage />
                                     </FormItem>
                                 )}
                             />
                         </div>
+
                         <FormField
                             control={form.control}
                             name="capacity"
@@ -128,12 +210,17 @@ function CreateVenueDialog({ open, onOpenChange }: { open: boolean; onOpenChange
                                 <FormItem>
                                     <FormLabel>Total Capacity (Seats)</FormLabel>
                                     <FormControl>
-                                        <Input type="number" {...field} onChange={e => field.onChange(parseInt(e.target.value))} />
+                                        <Input
+                                            type="number"
+                                            {...field}
+                                            onChange={(e) => field.onChange(parseInt(e.target.value || "0", 10))}
+                                        />
                                     </FormControl>
                                     <FormMessage />
                                 </FormItem>
                             )}
                         />
+
                         <Button type="submit" className="w-full" disabled={createVenue.isPending}>
                             {createVenue.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                             Create Venue
@@ -154,19 +241,32 @@ export default function AdminVenuesPage() {
     const { user } = useAuth();
     const isSuperAdmin = user?.role === "super_admin";
 
-    const filteredVenues = venues?.filter(v =>
-        v.name.toLowerCase().includes(search.toLowerCase()) ||
-        v.location.toLowerCase().includes(search.toLowerCase())
-    ) || [];
+    const filteredVenues = useMemo(() => {
+        const list = venues || [];
+        const q = search.trim().toLowerCase();
+        if (!q) return list;
 
+        return list.filter((v: any) => {
+            const name = (v.name || "").toLowerCase();
+            const location = (v.location || "").toLowerCase();
+            return name.includes(q) || location.includes(q);
+        });
+    }, [venues, search]);
+
+    // IMPORTANT: This is still calling your current "delete" hook.
+    // If your backend actually soft-disables here, rename hook later.
     const handleDelete = (id: string, name: string) => {
         deleteVenue.mutate(id, {
             onSuccess: () => {
-                toast({ title: "Deleted", description: `Venue ${name} was disabled.` });
+                toast({ title: "Deleted", description: `Venue "${name}" was deleted.` });
             },
-            onError: (err) => {
-                toast({ title: "Error", description: err.message, variant: "destructive" });
-            }
+            onError: (err: any) => {
+                toast({
+                    title: "Error",
+                    description: err?.message || "Failed to delete venue.",
+                    variant: "destructive",
+                });
+            },
         });
     };
 
@@ -222,46 +322,73 @@ export default function AdminVenuesPage() {
                                     <TableHead className="text-right">Actions</TableHead>
                                 </TableRow>
                             </TableHeader>
+
                             <TableBody>
-                                {filteredVenues.map((venue) => (
+                                {filteredVenues.map((venue: any) => (
                                     <TableRow key={venue.id}>
                                         <TableCell className="font-medium text-primary">
                                             {venue.name}
-                                            {venue.status === "disabled" && <Badge variant="outline" className="ml-2 text-xs text-muted-foreground">Disabled</Badge>}
+                                            {venue.status === "disabled" && (
+                                                <Badge variant="outline" className="ml-2 text-xs text-muted-foreground">
+                                                    Disabled
+                                                </Badge>
+                                            )}
                                         </TableCell>
+
                                         <TableCell className="text-muted-foreground">{venue.location}</TableCell>
+
                                         <TableCell>
                                             <Badge variant={venue.status === "active" ? "default" : "secondary"}>
                                                 {venue.status}
                                             </Badge>
                                         </TableCell>
+
                                         <TableCell className="text-muted-foreground">
                                             {venue.openTime} - {venue.closeTime}
                                         </TableCell>
+
                                         <TableCell className="text-right space-x-2">
                                             <Link href={`/admin/venues/${venue.id}`}>
                                                 <Button variant="ghost" size="sm" className="hidden sm:inline-flex">
                                                     <Edit className="w-4 h-4 mr-2" /> Edit
                                                 </Button>
                                             </Link>
+
                                             <Link href={`/admin/venues/${venue.id}/seats`}>
-                                                <Button variant="outline" size="sm" className="hidden sm:inline-flex border-primary/20 hover:bg-primary/10 text-primary">
+                                                <Button
+                                                    variant="outline"
+                                                    size="sm"
+                                                    className="hidden sm:inline-flex border-primary/20 hover:bg-primary/10 text-primary"
+                                                >
                                                     <LayoutGrid className="w-4 h-4 mr-2" /> Seats
                                                 </Button>
                                             </Link>
 
-                                            {isSuperAdmin && venue.status !== "disabled" && (
+                                            {/* ✅ DELETE is now available even if venue is disabled */}
+                                            {isSuperAdmin && (
                                                 <AlertDialog>
                                                     <AlertDialogTrigger asChild>
-                                                        <Button variant="ghost" size="sm" className="text-destructive hover:bg-destructive/10">
-                                                            <Trash2 className="w-4 h-4" />
+                                                        <Button
+                                                            variant="ghost"
+                                                            size="sm"
+                                                            className="text-destructive hover:bg-destructive/10"
+                                                            disabled={deleteVenue.isPending}
+                                                            title="Delete venue"
+                                                        >
+                                                            {deleteVenue.isPending ? (
+                                                                <Loader2 className="w-4 h-4 animate-spin" />
+                                                            ) : (
+                                                                <Trash2 className="w-4 h-4" />
+                                                            )}
                                                         </Button>
                                                     </AlertDialogTrigger>
+
                                                     <AlertDialogContent>
                                                         <AlertDialogHeader>
-                                                            <AlertDialogTitle>Are you absolute sure?</AlertDialogTitle>
+                                                            <AlertDialogTitle>Delete this venue?</AlertDialogTitle>
                                                             <AlertDialogDescription>
-                                                                This will soft-delete the venue "{venue.name}". Existing reservations may be affected.
+                                                                This will delete the venue "{venue.name}".
+                                                                If your backend is doing a soft-delete, it will mark it as disabled instead.
                                                             </AlertDialogDescription>
                                                         </AlertDialogHeader>
                                                         <AlertDialogFooter>

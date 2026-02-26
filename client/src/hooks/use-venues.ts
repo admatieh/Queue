@@ -26,16 +26,26 @@ export function useAdminVenues() {
 
 export function useDeleteVenue() {
   const queryClient = useQueryClient();
+
   return useMutation({
     mutationFn: async (id: string) => {
       const res = await fetch(`/api/admin/venues/${id}`, {
         method: "DELETE",
-        credentials: "omit" // Keeping default unless auth specifically fails
+        credentials: "include",
       });
-      if (!res.ok) throw new Error("Failed to delete venue");
+
+      let data: any = null;
+      try { data = await res.json(); } catch { }
+
+      if (!res.ok) {
+        throw new Error(data?.message || data?.error || "Failed to delete venue");
+      }
+
+      return data; // ✅ return what server says happened
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/admin/venues/me"] });
+
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/venues"] });
       queryClient.invalidateQueries({ queryKey: [api.venues.list.path] });
     },
   });
