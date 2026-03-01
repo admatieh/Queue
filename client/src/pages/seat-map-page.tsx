@@ -72,16 +72,18 @@ export default function SeatMapPage() {
 
   const isLoading = isVenueLoading || isSeatsLoading;
 
-  // Process seats into grid
-  const grid = useMemo(() => {
+  // Process seats into sections
+  const groupedSeats = useMemo(() => {
     if (!seatData?.seats || seatData.seats.length === 0) {
-      return { rows: [] as string[], cols: [] as string[], seatMap: [] as any[] };
+      return {};
     }
 
-    const rows = Array.from(new Set(seatData.seats.map((s: any) => s.row))).sort();
-    const cols = Array.from(new Set(seatData.seats.map((s: any) => s.col))).sort((a, b) => Number(a) - Number(b));
-
-    return { rows, cols, seatMap: seatData.seats };
+    return seatData.seats.reduce((acc, seat) => {
+      const section = seat.section || "Main";
+      if (!acc[section]) acc[section] = [];
+      acc[section].push(seat);
+      return acc;
+    }, {} as Record<string, typeof seatData.seats>);
   }, [seatData]);
 
   const handleSeatClick = (seat: any) => {
@@ -183,31 +185,30 @@ export default function SeatMapPage() {
             <span className="text-xs text-muted-foreground uppercase tracking-widest font-semibold">Front of Room (Screen/Stage)</span>
           </div>
 
-          <div
-            className="grid gap-4 mx-auto p-4 overflow-auto max-w-full"
-            style={{ gridTemplateColumns: `repeat(${grid.cols.length}, minmax(3rem, 1fr))` }}
-          >
-            {grid.rows.map((row) =>
-              grid.cols.map((col) => {
-                const seat = grid.seatMap.find((s: any) => s.row === row && s.col === col);
-
-                if (!seat) return <div key={`${row}-${col}`} className="w-12 h-12" />;
-
-                return (
-                  <button
-                    key={seat.id}
-                    onClick={() => handleSeatClick(seat)}
-                    disabled={seat.status !== "available" && !seat.isReserved}
-                    className={cn(
-                      "w-12 h-12 rounded-xl flex items-center justify-center text-sm font-bold transition-all duration-200 seat-enter",
-                      getSeatStatusColor(seat)
-                    )}
-                    title={`Seat ${seat.row}${seat.col} (${seat.type})`}
-                  >
-                    {seat.row}{seat.col}
-                  </button>
-                );
-              })
+          <div className="w-full space-y-12">
+            {Object.entries(groupedSeats).map(([sectionName, seats]) => (
+              <div key={sectionName} className="space-y-4">
+                <h3 className="text-xl font-medium tracking-tight border-b pb-2">{sectionName}</h3>
+                <div className="flex flex-wrap gap-4">
+                  {seats.map((seat) => (
+                    <button
+                      key={seat.id}
+                      onClick={() => handleSeatClick(seat)}
+                      disabled={seat.status !== "available" && !seat.isReserved}
+                      className={cn(
+                        "w-14 h-14 rounded-xl flex items-center justify-center text-sm font-bold transition-all duration-200 seat-enter",
+                        getSeatStatusColor(seat)
+                      )}
+                      title={`Seat ${seat.label} - ${seat.locationDescription || 'No description'}`}
+                    >
+                      {seat.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            ))}
+            {Object.keys(groupedSeats).length === 0 && (
+              <div className="text-muted-foreground">No seats available constraint for this venue.</div>
             )}
           </div>
         </div>

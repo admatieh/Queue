@@ -44,7 +44,11 @@ export class DatabaseStorage implements IStorage {
       email: doc.email,
       name: doc.name,
       role: doc.role,
-      createdAt: doc.createdAt.toISOString()
+      status: doc.status,
+      venueId: doc.venueId ? doc.venueId.toString() : null,
+      createdAt: doc.createdAt.toISOString(),
+      deletedAt: doc.deletedAt?.toISOString() || null,
+      deletedBy: doc.deletedBy ? doc.deletedBy.toString() : null
     };
   }
 
@@ -57,10 +61,14 @@ export class DatabaseStorage implements IStorage {
       capacity: doc.capacity,
       openTime: doc.openTime,
       closeTime: doc.closeTime,
+      timezone: doc.timezone,
       imageUrl: doc.imageUrl,
       category: doc.category as any,
+      status: doc.status,
       occupiedSeats: (doc as any).occupiedSeats,
-      createdAt: doc.createdAt.toISOString()
+      createdAt: doc.createdAt.toISOString(),
+      deletedAt: doc.deletedAt?.toISOString() || null,
+      deletedBy: doc.deletedBy ? doc.deletedBy.toString() : null
     };
   }
 
@@ -68,8 +76,9 @@ export class DatabaseStorage implements IStorage {
     return {
       id: doc._id.toString(),
       venueId: doc.venueId.toString(),
-      row: doc.row,
-      col: doc.col,
+      label: doc.label,
+      section: doc.section,
+      locationDescription: doc.locationDescription,
       type: doc.type,
       status: doc.status,
       x: doc.x,
@@ -163,10 +172,14 @@ export class DatabaseStorage implements IStorage {
       capacity: v.capacity,
       openTime: v.openTime,
       closeTime: v.closeTime,
+      timezone: v.timezone,
       imageUrl: v.imageUrl,
       category: v.category,
+      status: v.status,
       occupiedSeats: v.occupiedSeats,
-      createdAt: v.createdAt.toISOString()
+      createdAt: v.createdAt.toISOString(),
+      deletedAt: v.deletedAt ? v.deletedAt.toISOString() : null,
+      deletedBy: v.deletedBy ? v.deletedBy.toString() : null
     }));
   }
 
@@ -235,7 +248,7 @@ export class DatabaseStorage implements IStorage {
     return this.mapReservation(reservation);
   }
 
-  async getActiveReservationsByUser(userId: string): Promise<(Reservation & { venueName: string; seatRow: string; seatCol: string })[]> {
+ async getActiveReservationsByUser(userId: string): Promise<(Reservation & { venueName: string; seatRow: string; seatCol: string })[]> {
     const now = new Date();
     const reservations = await ReservationModel.find({
       userId,
@@ -250,6 +263,7 @@ export class DatabaseStorage implements IStorage {
       seatCol: r.seatId.col
     }));
   }
+  
 
   async getActiveReservationForSeat(seatId: string): Promise<Reservation | undefined> {
     const now = new Date();

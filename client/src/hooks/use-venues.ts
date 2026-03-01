@@ -1,6 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { api, buildUrl } from "@shared/routes";
-import { type InsertVenue, type InsertSeat } from "@shared/schema";
+import { type Venue, type InsertVenue, type InsertSeat } from "@shared/schema";
 
 export function useVenues() {
   return useQuery({
@@ -9,6 +9,44 @@ export function useVenues() {
       const res = await fetch(api.venues.list.path);
       if (!res.ok) throw new Error("Failed to fetch venues");
       return api.venues.list.responses[200].parse(await res.json());
+    },
+  });
+}
+
+export function useAdminVenues() {
+  return useQuery({
+    queryKey: ["/api/admin/venues/me"],
+    queryFn: async () => {
+      const res = await fetch("/api/admin/venues/me");
+      if (!res.ok) throw new Error("Failed to fetch admin venues");
+      return (await res.json()) as Venue[];
+    },
+  });
+}
+
+export function useDeleteVenue() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (id: string) => {
+      const res = await fetch(`/api/admin/venues/${id}`, {
+        method: "DELETE",
+        credentials: "include",
+      });
+
+      let data: any = null;
+      try { data = await res.json(); } catch { }
+
+      if (!res.ok) {
+        throw new Error(data?.message || data?.error || "Failed to delete venue");
+      }
+
+      return data; // ✅ return what server says happened
+    },
+
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/venues"] });
+      queryClient.invalidateQueries({ queryKey: [api.venues.list.path] });
     },
   });
 }
@@ -35,11 +73,15 @@ export function useCreateVenue() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(venue),
       });
-      if (!res.ok) throw new Error("Failed to create venue");
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.message || "Failed to create venue");
+      }
       return api.admin.createVenue.responses[201].parse(await res.json());
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: [api.venues.list.path] });
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/venues/me"] });
     },
   });
 }
@@ -54,12 +96,16 @@ export function useUpdateVenue() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(data),
       });
-      if (!res.ok) throw new Error("Failed to update venue");
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.message || "Failed to update venue");
+      }
       return api.admin.updateVenue.responses[200].parse(await res.json());
     },
     onSuccess: (_, { id }) => {
       queryClient.invalidateQueries({ queryKey: [api.venues.list.path] });
       queryClient.invalidateQueries({ queryKey: [api.venues.get.path, id] });
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/venues/me"] });
     },
   });
 }
@@ -74,7 +120,10 @@ export function useCreateSeat() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(seat),
       });
-      if (!res.ok) throw new Error("Failed to create seat");
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.message || "Failed to create seat");
+      }
       return api.admin.createSeat.responses[201].parse(await res.json());
     },
     onSuccess: (_, { venueId }) => {
@@ -94,11 +143,38 @@ export function useUpdateSeat() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(data),
       });
-      if (!res.ok) throw new Error("Failed to update seat");
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.message || "Failed to update seat");
+      }
       return api.admin.updateSeat.responses[200].parse(await res.json());
     },
     onSuccess: (_, { venueId }) => {
       queryClient.invalidateQueries({ queryKey: [api.venues.getSeats.path, venueId] });
+    },
+  });
+}
+
+// Hook to enable/disable a venue (toggle active status)
+export function useToggleVenueStatus() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ id, status }: { id: string; status: "active" | "disabled" }) => {
+      const url = buildUrl(api.admin.updateVenue.path, { id });
+      const res = await fetch(url, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status }),
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.message || "Failed to update venue status");
+      }
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/venues/me"] });
+      queryClient.invalidateQueries({ queryKey: [api.venues.list.path] });
     },
   });
 }
