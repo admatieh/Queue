@@ -6,18 +6,21 @@ export default {
   theme: {
     extend: {
       borderRadius: {
-        lg: ".5625rem", /* 9px */
-        md: ".375rem", /* 6px */
-        sm: ".1875rem", /* 3px */
+        lg: "0.5rem",   /* 8px */
+        md: "0.375rem", /* 6px */
+        sm: "0.25rem",  /* 4px */
       },
       colors: {
-        // Flat / base colors (regular buttons)
         background: "hsl(var(--background) / <alpha-value>)",
         foreground: "hsl(var(--foreground) / <alpha-value>)",
         border: "hsl(var(--border) / <alpha-value>)",
         input: "hsl(var(--input) / <alpha-value>)",
-        heroBg: "#F3EFEA",
-        accentRed: "#B5472D",
+
+        // Brand accents (legacy compatibility)
+        heroBg: "hsl(220 18% 8%)",
+        accentRed: "hsl(2 72% 48%)",
+        accentGold: "hsl(43 80% 58%)",
+
         card: {
           DEFAULT: "hsl(var(--card) / <alpha-value>)",
           foreground: "hsl(var(--card-foreground) / <alpha-value>)",
@@ -75,22 +78,38 @@ export default {
         "sidebar-accent": {
           DEFAULT: "hsl(var(--sidebar-accent) / <alpha-value>)",
           foreground: "hsl(var(--sidebar-accent-foreground) / <alpha-value>)",
-          border: "var(--sidebar-accent-border)"
+          border: "var(--sidebar-accent-border)",
         },
         status: {
+          available: "hsl(var(--status-available))",
+          occupied: "hsl(var(--status-occupied))",
+          reserved: "hsl(var(--status-reserved))",
+          selected: "hsl(var(--status-selected))",
           online: "rgb(34 197 94)",
           away: "rgb(245 158 11)",
           busy: "rgb(239 68 68)",
           offline: "rgb(156 163 175)",
         },
+        // Border-gold as a discrete color for use in arbitrary values
+        "gold": "hsl(var(--border-gold) / <alpha-value>)",
       },
       fontFamily: {
-        sans: ["Inter", "var(--font-sans)"],
-        display: ["Outfit", "var(--font-sans)"],
-        serif: ["var(--font-serif)"],
-        mono: ["var(--font-mono)"],
-
-        editorial: ['"Cormorant Garamond"', "serif"], // ← ADD THIS
+        sans: ["Inter", "ui-sans-serif", "system-ui"],
+        display: ["Playfair Display", "serif"],
+        serif: ["Playfair Display", "serif"],
+        editorial: ["Playfair Display", "serif"], // replaces old Cormorant usage
+        mono: ["ui-monospace", "SFMono-Regular", "Menlo", "monospace"],
+      },
+      boxShadow: {
+        "card": "0 4px 24px hsl(220 18% 4% / .5), 0 0 0 1px hsl(220 10% 22%)",
+        "gold-glow": "0 0 20px hsl(43 80% 58% / .22), 0 4px 24px hsl(220 18% 4% / .5)",
+        "inner-gold": "inset 0 0 0 1px hsl(43 60% 45% / .35)",
+        "sm-dark": "0 1px 4px hsl(220 18% 4% / .6)",
+      },
+      backgroundImage: {
+        "gold-gradient": "linear-gradient(135deg, hsl(43 80% 68%), hsl(38 70% 48%))",
+        "dark-gradient": "linear-gradient(180deg, hsl(220 18% 8%) 0%, hsl(220 18% 6%) 100%)",
+        "surface-gradient": "linear-gradient(180deg, hsl(220 15% 14%) 0%, hsl(220 15% 12%) 100%)",
       },
       keyframes: {
         "accordion-down": {
@@ -101,10 +120,20 @@ export default {
           from: { height: "var(--radix-accordion-content-height)" },
           to: { height: "0" },
         },
+        "fade-up": {
+          from: { opacity: "0", transform: "translateY(14px)" },
+          to: { opacity: "1", transform: "translateY(0)" },
+        },
+        "gold-pulse": {
+          "0%, 100%": { boxShadow: "0 0 0 0 hsl(43 80% 58% / 0)" },
+          "50%": { boxShadow: "0 0 12px 4px hsl(43 80% 58% / 0.3)" },
+        },
       },
       animation: {
         "accordion-down": "accordion-down 0.2s ease-out",
         "accordion-up": "accordion-up 0.2s ease-out",
+        "fade-up": "fade-up 0.35s cubic-bezier(0.16,1,0.3,1) both",
+        "gold-pulse": "gold-pulse 2s ease-in-out infinite",
       },
     },
   },

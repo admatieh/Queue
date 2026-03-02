@@ -1,4 +1,5 @@
 import express, { type Request, Response, NextFunction } from "express";
+import helmet from "helmet";
 import { registerRoutes } from "./routes/index";
 import { serveStatic } from "./config/static";
 import { createServer } from "http";
@@ -6,6 +7,11 @@ import path from "path";
 
 const app = express();
 const httpServer = createServer(app);
+
+// Security headers
+app.use(helmet({
+  contentSecurityPolicy: false,
+}));
 
 declare module "http" {
   interface IncomingMessage {

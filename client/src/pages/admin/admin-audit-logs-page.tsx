@@ -57,32 +57,27 @@ export default function AdminAuditLogsPage() {
     };
 
     const getActionColor = (action: string) => {
-        if (action.includes("create")) return "bg-emerald-500/10 text-emerald-700 border-emerald-500/20";
-        if (action.includes("delete") || action.includes("disable")) return "bg-rose-500/10 text-rose-700 border-rose-500/20";
-        if (action.includes("update")) return "bg-amber-500/10 text-amber-700 border-amber-500/20";
-        return "bg-blue-500/10 text-blue-700 border-blue-500/20";
+        if (action.includes("create")) return "bg-status-available/10 text-status-available border-status-available/30";
+        if (action.includes("delete") || action.includes("disable")) return "bg-destructive/10 text-destructive border-destructive/30";
+        if (action.includes("update") || action.includes("assign")) return "bg-primary/10 text-primary border-primary/30";
+        return "bg-status-reserved/10 text-status-reserved border-status-reserved/30";
     };
 
     return (
         <AdminLayout>
-            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-8">
-                <div>
-                    <h1 className="text-3xl font-bold tracking-tight">Audit Logs</h1>
-                    <p className="text-muted-foreground mt-1">Review system activities and administrative actions.</p>
-                </div>
+            <div className="mb-8">
+                <div className="deco-divider w-36 mb-2"><span>AUDIT LOGS</span></div>
+                <h1 className="text-3xl font-display font-bold text-foreground">Audit Logs</h1>
+                <p className="text-muted-foreground text-sm mt-1">Review all administrative actions across the platform.</p>
             </div>
 
-            <div className="bg-card rounded-xl border shadow-sm overflow-hidden min-h-[500px]">
-                <div className="p-4 border-b flex items-center justify-between gap-4">
-                    <div className="relative w-full max-w-sm">
+            <div className="bg-card border border-border rounded-lg overflow-hidden ticket-notch">
+                <div className="p-4 border-b border-border flex items-center gap-3">
+                    <div className="relative flex-1 max-w-sm">
                         <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                        <Input
-                            placeholder="Search by action, resource type..."
-                            className="pl-9 bg-muted/50"
-                            value={search}
-                            onChange={(e) => setSearch(e.target.value)}
-                        />
+                        <Input placeholder="Search by action, type…" className="pl-9 bg-background border-border" value={search} onChange={(e) => setSearch(e.target.value)} />
                     </div>
+                    <span className="text-xs label-caps text-muted-foreground">{data?.total ?? 0} entries</span>
                 </div>
 
                 {isLoading ? (
@@ -108,23 +103,23 @@ export default function AdminAuditLogsPage() {
                             </TableHeader>
                             <TableBody>
                                 {data.data.map((log) => (
-                                    <TableRow key={log._id}>
-                                        <TableCell className="whitespace-nowrap text-muted-foreground">
+                                    <TableRow key={log._id} className="border-border hover:bg-white/[0.02] transition-colors">
+                                        <TableCell className="whitespace-nowrap text-muted-foreground text-xs">
                                             {formatDate(log.createdAt)}
                                         </TableCell>
-                                        <TableCell className="font-mono text-xs">
+                                        <TableCell className="text-foreground text-xs font-mono">
                                             {log.actorUserId?.email || (log.actorUserId?._id || "").substring(0, 8) + "..."}
                                         </TableCell>
                                         <TableCell>
-                                            <Badge variant="outline" className={`capitalize ${getActionColor(log.action)}`}>
+                                            <Badge className={`text-[10px] font-bold uppercase tracking-wider ${getActionColor(log.action)}`}>
                                                 {log.action.replace(/_/g, " ")}
                                             </Badge>
                                         </TableCell>
                                         <TableCell>
                                             <div className="flex flex-col">
-                                                <span className="font-medium capitalize">{log.targetType}</span>
+                                                <span className="text-sm font-medium text-foreground capitalize">{log.targetType}</span>
                                                 {log.targetId && (
-                                                    <span className="text-xs text-muted-foreground font-mono truncate max-w-[150px]">
+                                                    <span className="text-[10px] text-muted-foreground font-mono truncate max-w-[130px]">
                                                         {log.targetId}
                                                     </span>
                                                 )}

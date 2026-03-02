@@ -27,25 +27,29 @@ const handleUpload = (req: any, res: any, next: any) => {
 router.get("/users", requireSuperAdmin, superAdminController.listAdmins);
 router.post("/users", requireSuperAdmin, superAdminController.createAdmin);
 router.put("/users/:id", requireSuperAdmin, superAdminController.updateAdmin);
+router.patch("/users/:id", requireSuperAdmin, superAdminController.updateAdmin);   // client sends PATCH
 router.delete("/users/:id", requireSuperAdmin, superAdminController.deleteAdmin);
 router.put("/users/:id/venues", requireSuperAdmin, superAdminController.assignVenuesToAdmin);
 router.get("/users/:id/venues", requireSuperAdmin, superAdminController.getAdminVenues);
 
 router.post("/venues", requireSuperAdmin, adminController.createVenue);
-router.delete("/venues/:id", requireSuperAdmin, adminController.deleteVenue); // We'll add this to controller next
+router.delete("/venues/:id", requireSuperAdmin, adminController.deleteVenue);
 router.get("/audit-logs", requireSuperAdmin, superAdminController.listAuditLogs);
 
 // === VENUE ADMIN ROUTES ===
-// (Super Admins can also access these because of requireVenueAccess logic)
-router.get("/venues/me", requireAdmin, adminController.listMyVenues); // We'll add this
+router.get("/venues/me", requireAdmin, adminController.listMyVenues);
 router.put("/venues/:id", requireVenueAccess, adminController.updateVenue);
+
+// Gallery management
 router.post("/venues/:id/upload", requireVenueAccess, handleUpload, adminController.uploadVenueImage);
+router.delete("/venues/:id/images", requireVenueAccess, adminController.deleteVenueImage);
+router.put("/venues/:id/images/reorder", requireVenueAccess, adminController.reorderVenueImages);
 
 router.post("/venues/:id/seats", requireVenueAccess, adminController.createSeat);
-router.put("/seats/:id", requireVenueAccess, adminController.updateSeat); // Seat ID in params, but requires venue ID logic check
+router.put("/seats/:id", requireVenueAccess, adminController.updateSeat);
 
 router.get("/venues/:id/reservations", requireVenueAccess, adminController.listReservations);
-router.post("/reservations/:id/cancel", requireAdmin, adminController.cancelReservation); // Needs reservation -> venue lookup check
+router.post("/reservations/:id/cancel", requireAdmin, adminController.cancelReservation);
 
 router.post("/venues/:id/notifications", requireVenueAccess, superAdminController.dispatchNotification);
 

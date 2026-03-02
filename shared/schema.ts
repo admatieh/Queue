@@ -52,12 +52,16 @@ export type InsertUser = z.infer<typeof insertUserSchema>;
 export const insertVenueSchema = z.object({
     name: z.string().min(1),
     location: z.string().min(1),
+    address: z.string().optional(),           // precise street address for Maps embed
+    lat: z.number().optional(),               // GPS latitude
+    lng: z.number().optional(),               // GPS longitude
     description: z.string().optional(),
     capacity: z.number().default(0),
     openTime: z.string().default("09:00"),
     closeTime: z.string().default("22:00"),
     timezone: z.string().default("UTC"),
-    imageUrl: z.string().optional(),
+    imageUrl: z.string().optional(),          // legacy primary image
+    images: z.array(z.string()).optional(),   // gallery images
     category: z.enum(["tech", "cafe", "restaurant"]).default("tech"),
     status: z.enum(["active", "disabled"]).default("active"),
 });
@@ -66,12 +70,16 @@ export type Venue = {
     id: string;
     name: string;
     location: string;
+    address?: string;
+    lat?: number;
+    lng?: number;
     description?: string;
     capacity: number;
     openTime: string;
     closeTime: string;
     timezone: string;
     imageUrl?: string;
+    images?: string[];
     category: "tech" | "cafe" | "restaurant";
     status: "active" | "disabled";
     occupiedSeats?: number;

@@ -43,9 +43,10 @@ function AddSeatDialog({ venueId, open, onOpenChange }: { venueId: string; open:
 
     return (
         <Dialog open={open} onOpenChange={onOpenChange}>
-            <DialogContent className="sm:max-w-[425px]">
+            <DialogContent className="sm:max-w-[425px] bg-card border-border">
                 <DialogHeader>
-                    <DialogTitle>Add New Seat</DialogTitle>
+                    <div className="deco-divider mb-2 w-32"><span>ADD SEAT</span></div>
+                    <DialogTitle className="font-display text-xl text-foreground">Add New Seat</DialogTitle>
                 </DialogHeader>
                 <Form {...form}>
                     <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4 pt-4">
@@ -123,7 +124,7 @@ function AddSeatDialog({ venueId, open, onOpenChange }: { venueId: string; open:
                             />
                         </div>
 
-                        <Button type="submit" className="w-full" disabled={createSeat.isPending}>
+                        <Button type="submit" className="w-full bg-primary text-primary-foreground shadow-gold-glow font-semibold" disabled={createSeat.isPending}>
                             {createSeat.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                             Add Seat
                         </Button>
@@ -182,57 +183,38 @@ export default function AdminSeatsPage() {
             <div className="mb-6 flex items-center justify-between gap-4">
                 <div className="flex items-center gap-4">
                     <Link href="/admin/venues">
-                        <Button variant="outline" size="icon"><ArrowLeft className="w-4 h-4" /></Button>
+                        <Button variant="outline" size="icon" className="border-border h-9 w-9">
+                            <ArrowLeft className="w-4 h-4" />
+                        </Button>
                     </Link>
                     <div>
-                        <h1 className="text-3xl font-bold tracking-tight">Manage Seats</h1>
-                        <p className="text-muted-foreground mt-1">Configure seating capacity for {venue.name}</p>
+                        <div className="deco-divider w-40 mb-1"><span>SEAT MANAGEMENT</span></div>
+                        <h1 className="text-3xl font-display font-bold text-foreground">Manage Seats</h1>
+                        <p className="text-muted-foreground text-sm mt-0.5">Configure seating for {venue.name}</p>
                     </div>
                 </div>
-                <Button onClick={() => setIsAddOpen(true)} className="gap-2">
-                    <Plus className="w-4 h-4" /> Add Seat
+                <Button onClick={() => setIsAddOpen(true)} className="bg-primary text-primary-foreground shadow-gold-glow font-semibold">
+                    <Plus className="w-4 h-4 mr-2" /> Add Seat
                 </Button>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
-                <div className="bg-card rounded-xl border p-4 shadow-sm flex items-center gap-4">
-                    <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center text-primary">
-                        <Hash className="w-6 h-6" />
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
+                {[
+                    { label: "Total Seats", value: seatData?.seats?.length || 0, icon: Hash, color: "text-primary", bg: "bg-primary/10" },
+                    { label: "Available", value: seatData?.seats?.filter(s => s.status === "available").length || 0, icon: Armchair, color: "text-status-available", bg: "bg-status-available/10" },
+                    { label: "Occupied", value: seatData?.seats?.filter(s => s.status === "occupied" || s.isReserved).length || 0, icon: Armchair, color: "text-destructive", bg: "bg-destructive/10" },
+                    { label: "Disabled", value: seatData?.seats?.filter(s => s.status === "disabled").length || 0, icon: StopCircle, color: "text-muted-foreground", bg: "bg-muted" },
+                ].map(({ label, value, icon: Icon, color, bg }) => (
+                    <div key={label} className="bg-card border border-border rounded-lg p-4 flex items-center gap-3">
+                        <div className={`w-10 h-10 rounded-full ${bg} flex items-center justify-center ${color}`}>
+                            <Icon className="w-5 h-5" />
+                        </div>
+                        <div>
+                            <p className="text-xs text-muted-foreground label-caps">{label}</p>
+                            <p className="text-2xl font-display font-bold text-foreground">{value}</p>
+                        </div>
                     </div>
-                    <div>
-                        <p className="text-sm font-medium text-muted-foreground">Total Displayed Seats</p>
-                        <p className="text-2xl font-bold">{seatData?.seats?.length || 0}</p>
-                    </div>
-                </div>
-                <div className="bg-card rounded-xl border p-4 shadow-sm flex items-center gap-4">
-                    <div className="w-12 h-12 rounded-full bg-emerald-500/10 flex items-center justify-center text-emerald-600">
-                        <Armchair className="w-6 h-6" />
-                    </div>
-                    <div>
-                        <p className="text-sm font-medium text-muted-foreground">Available Seats</p>
-                        <p className="text-2xl font-bold">{seatData?.seats?.filter(s => s.status === "available").length || 0}</p>
-                    </div>
-                </div>
-                <div className="bg-card rounded-xl border p-4 shadow-sm flex items-center gap-4">
-                    <div className="w-12 h-12 rounded-full bg-rose-500/10 flex items-center justify-center text-rose-600">
-                        <Armchair className="w-6 h-6" />
-                    </div>
-                    <div>
-                        <p className="text-sm font-medium text-muted-foreground">Occupied/Reserved</p>
-                        <p className="text-2xl font-bold">
-                            {seatData?.seats?.filter(s => s.status === "occupied" || s.isReserved).length || 0}
-                        </p>
-                    </div>
-                </div>
-                <div className="bg-card rounded-xl border p-4 shadow-sm flex items-center gap-4">
-                    <div className="w-12 h-12 rounded-full bg-muted flex items-center justify-center text-muted-foreground">
-                        <StopCircle className="w-6 h-6" />
-                    </div>
-                    <div>
-                        <p className="text-sm font-medium text-muted-foreground">Disabled Seats</p>
-                        <p className="text-2xl font-bold">{seatData?.seats?.filter(s => s.status === "disabled").length || 0}</p>
-                    </div>
-                </div>
+                ))}
             </div>
 
             <div className="space-y-8">
@@ -245,10 +227,10 @@ export default function AdminSeatsPage() {
                     </div>
                 ) : (
                     Object.entries(groupedSeats).map(([section, seats]) => (
-                        <div key={section} className="bg-card rounded-xl border shadow-sm overflow-hidden">
-                            <div className="bg-muted/30 p-4 border-b flex items-center justify-between">
-                                <h2 className="text-lg font-semibold">{section}</h2>
-                                <Badge variant="secondary">{seats.length} Seats</Badge>
+                        <div key={section} className="bg-card border border-border rounded-lg overflow-hidden">
+                            <div className="bg-background/50 p-4 border-b border-border flex items-center justify-between">
+                                <h2 className="text-sm font-semibold label-caps text-muted-foreground">{section}</h2>
+                                <Badge className="text-[10px] font-bold bg-primary/10 text-primary border-primary/20">{seats.length} seats</Badge>
                             </div>
                             <div className="p-6">
                                 <div className="flex flex-wrap gap-4">
@@ -256,9 +238,9 @@ export default function AdminSeatsPage() {
                                         const isDisabled = seat.status === "disabled";
                                         const isOccupiedOrReserved = seat.status === "occupied" || seat.isReserved;
 
-                                        let bgClass = "bg-emerald-500/10 border-emerald-500/20 text-emerald-700";
-                                        if (isDisabled) bgClass = "bg-muted border-muted-foreground/20 text-muted-foreground opacity-60";
-                                        else if (isOccupiedOrReserved) bgClass = "bg-rose-500/10 border-rose-500/20 text-rose-700";
+                                        let bgClass = "bg-status-available/10 border-status-available/30 text-status-available";
+                                        if (isDisabled) bgClass = "bg-muted/30 border-border text-muted-foreground/50";
+                                        else if (isOccupiedOrReserved) bgClass = "bg-destructive/10 border-destructive/20 text-destructive";
 
                                         return (
                                             <div

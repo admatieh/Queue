@@ -7,7 +7,7 @@ import { storage } from "../services/storage.service";
 import { insertAdminSchema, updateAdminSchema } from "@shared/schema";
 import { z } from "zod";
 import mongoose from "mongoose";
-import bcrypt from "bcrypt";
+import { hashPassword } from "../utils/crypto";
 import { UserVenueNotificationSubscriptionModel, UserNotificationModel } from "../models/Notification";
 
 export async function logAudit(actorId: string, action: string, targetType: string, targetId: string, metadata: any = {}) {
@@ -68,7 +68,7 @@ export const createAdmin = async (req: Request, res: Response) => {
             return res.status(409).json({ message: "Email already in use" });
         }
 
-        const passwordHash = await bcrypt.hash(input.password, 10);
+        const passwordHash = await hashPassword(input.password);
         const newAdmin = await UserModel.create({
             email: input.email,
             passwordHash,

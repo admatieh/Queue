@@ -57,12 +57,16 @@ export class DatabaseStorage implements IStorage {
       id: doc._id.toString(),
       name: doc.name,
       location: doc.location,
+      address: doc.address,
+      lat: doc.lat,
+      lng: doc.lng,
       description: doc.description,
       capacity: doc.capacity,
       openTime: doc.openTime,
       closeTime: doc.closeTime,
       timezone: doc.timezone,
       imageUrl: doc.imageUrl,
+      images: doc.images || [],
       category: doc.category as any,
       status: doc.status,
       occupiedSeats: (doc as any).occupiedSeats,
@@ -125,6 +129,11 @@ export class DatabaseStorage implements IStorage {
   async getVenues(): Promise<Venue[]> {
     const now = new Date();
     const venuesWithOccupancy = await VenueModel.aggregate([
+      // H6 FIX: soft-delete filter must be explicit in aggregation pipelines
+      // (Mongoose middleware only applies to Model.find*, not aggregate)
+      {
+        $match: { deletedAt: null }
+      },
       {
         $lookup: {
           from: "reservations",
@@ -164,12 +173,16 @@ export class DatabaseStorage implements IStorage {
       id: v._id.toString(),
       name: v.name,
       location: v.location,
+      address: v.address,
+      lat: v.lat,
+      lng: v.lng,
       description: v.description,
       capacity: v.capacity,
       openTime: v.openTime,
       closeTime: v.closeTime,
       timezone: v.timezone,
       imageUrl: v.imageUrl,
+      images: v.images || [],
       category: v.category,
       status: v.status,
       occupiedSeats: v.occupiedSeats,
@@ -269,11 +282,13 @@ export class DatabaseStorage implements IStorage {
   }
 
   async cancelReservation(id: string): Promise<Reservation | undefined> {
-    const reservation = await ReservationModel.findById(id);
+    // M2 FIX: only cancel if currently active; prevents double-cancel
+    const reservation = await ReservationModel.findOneAndUpdate(
+      { _id: id, status: "active" },
+      { status: "cancelled" },
+      { new: true }
+    );
     if (!reservation) return undefined;
-
-    reservation.status = "cancelled";
-    await reservation.save();
 
     // Free the seat
     await SeatModel.findByIdAndUpdate(reservation.seatId, {
@@ -298,24 +313,33 @@ export class DatabaseStorage implements IStorage {
 
   async expireReservations(): Promise<void> {
     const now = new Date();
-    const expired = await ReservationModel.find({
-      status: "active",
-      endTime: { $lt: now }
-    });
 
-    for (const res of expired) {
-      res.status = "expired";
-      await res.save();
+    // M3 FIX: bulk updateMany instead of N+1 per-document saves
+    // Step 1: find IDs of reservations to expire so we can free their seats
+    const toExpire = await ReservationModel.find(
+      { status: "active", endTime: { $lt: now } },
+      { _id: 1, seatId: 1 }
+    ).lean();
 
-      // Free the seat only if this was the active reservation
-      await SeatModel.findOneAndUpdate(
-        { _id: res.seatId, activeReservationId: res._id },
-        {
-          status: "available",
-          $unset: { activeReservationId: "", reservedUntil: "" }
-        }
-      );
-    }
+    if (toExpire.length === 0) return;
+
+    const ids = toExpire.map(r => r._id);
+    const seatIds = toExpire.map(r => r.seatId);
+
+    // Step 2: bulk-expire all matching reservations
+    await ReservationModel.updateMany(
+      { _id: { $in: ids } },
+      { status: "expired" }
+    );
+
+    // Step 3: bulk-free all affected seats that still point to these reservation IDs
+    await SeatModel.updateMany(
+      { activeReservationId: { $in: ids } },
+      {
+        status: "available",
+        $unset: { activeReservationId: "", reservedUntil: "" }
+      }
+    );
   }
 }
 

@@ -58,7 +58,7 @@ export default function AdminUsersPage() {
     const [editVenueId, setEditVenueId] = useState<string>("none");
 
     // Venues list for assigning admins
-    const { data: venuesData } = useAdminVenues();
+    const { data: venuesData } = useAdminVenues(user);
     const venueOptions = useMemo(() => {
         const list = (venuesData || []).map((v: any) => ({ id: v.id, name: v.name, status: v.status, active: v.active }));
         // hide disabled venues from selection (optional)
@@ -187,39 +187,40 @@ export default function AdminUsersPage() {
         <AdminLayout>
             <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-8">
                 <div>
-                    <h1 className="text-3xl font-bold tracking-tight">Manage Admins</h1>
-                    <p className="text-muted-foreground mt-1">
-                        Create admins, promote users, assign venues, and enable/disable admin access.
-                    </p>
+                    <div className="deco-divider w-36 mb-2"><span>ADMIN USERS</span></div>
+                    <h1 className="text-3xl font-display font-bold text-foreground">Manage Admins</h1>
+                    <p className="text-muted-foreground text-sm mt-1">Create admins, assign venues, and control access.</p>
                 </div>
 
                 <div className="flex gap-2">
                     {/* Promote User */}
                     <Dialog open={isPromoteOpen} onOpenChange={setIsPromoteOpen}>
                         <DialogTrigger asChild>
-                            <Button variant="outline" className="gap-2">
+                            <Button variant="outline" className="gap-2 border-border">
                                 <Users className="w-4 h-4" /> Promote User
                             </Button>
                         </DialogTrigger>
-                        <DialogContent className="max-w-lg">
+                        <DialogContent className="max-w-lg bg-card border-border shadow-card">
                             <DialogHeader>
-                                <DialogTitle>Promote a User to Admin</DialogTitle>
+                                <div className="deco-divider mb-2 w-40"><span>PROMOTE USER</span></div>
+                                <DialogTitle className="font-display text-xl text-foreground">Promote User to Admin</DialogTitle>
                             </DialogHeader>
 
                             <div className="space-y-4 py-4">
                                 <div className="space-y-2">
-                                    <Label>Search Users</Label>
+                                    <label className="label-caps">Search Users</label>
                                     <Input
                                         placeholder="Search by name or email..."
                                         value={promoteSearch}
                                         onChange={(e) => setPromoteSearch(e.target.value)}
+                                        className="bg-background border-border"
                                     />
                                 </div>
 
                                 <div className="space-y-2">
-                                    <Label>Select User</Label>
+                                    <label className="label-caps">Select User</label>
                                     <Select value={selectedUserId} onValueChange={setSelectedUserId}>
-                                        <SelectTrigger>
+                                        <SelectTrigger className="bg-background border-border">
                                             <SelectValue placeholder={isLoadingUsers ? "Loading..." : "Choose a user"} />
                                         </SelectTrigger>
                                         <SelectContent>
@@ -234,9 +235,9 @@ export default function AdminUsersPage() {
                                 </div>
 
                                 <div className="space-y-2">
-                                    <Label>Role</Label>
+                                    <label className="label-caps">Role</label>
                                     <Select value={promoteRole} onValueChange={setPromoteRole}>
-                                        <SelectTrigger>
+                                        <SelectTrigger className="bg-background border-border">
                                             <SelectValue placeholder="Select role" />
                                         </SelectTrigger>
                                         <SelectContent>
@@ -247,9 +248,9 @@ export default function AdminUsersPage() {
                                 </div>
 
                                 <div className="space-y-2">
-                                    <Label>Assign Venue (optional)</Label>
+                                    <label className="label-caps">Assign Venue (optional)</label>
                                     <Select value={promoteVenueId} onValueChange={setPromoteVenueId}>
-                                        <SelectTrigger>
+                                        <SelectTrigger className="bg-background border-border">
                                             <SelectValue placeholder="Choose a venue (optional)" />
                                         </SelectTrigger>
                                         <SelectContent>
@@ -261,17 +262,13 @@ export default function AdminUsersPage() {
                                             ))}
                                         </SelectContent>
                                     </Select>
-                                    <p className="text-xs text-muted-foreground">
-                                        If no venue is assigned, backend should block this admin from doing anything until assigned.
-                                    </p>
+                                    <p className="text-xs text-muted-foreground">Venue Admins must have an assignment to access the dashboard.</p>
                                 </div>
                             </div>
 
                             <DialogFooter>
-                                <Button variant="outline" onClick={() => setIsPromoteOpen(false)}>
-                                    Cancel
-                                </Button>
-                                <Button onClick={() => promoteUser.mutate()} disabled={promoteUser.isPending || selectedUserId === "none"}>
+                                <Button variant="outline" onClick={() => setIsPromoteOpen(false)} className="border-border">Cancel</Button>
+                                <Button onClick={() => promoteUser.mutate()} disabled={promoteUser.isPending || selectedUserId === "none"} className="bg-primary text-primary-foreground font-semibold shadow-gold-glow">
                                     {promoteUser.isPending && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
                                     Promote
                                 </Button>
@@ -282,48 +279,37 @@ export default function AdminUsersPage() {
                     {/* Add Admin */}
                     <Dialog open={isAddOpen} onOpenChange={setIsAddOpen}>
                         <DialogTrigger asChild>
-                            <Button className="gap-2">
+                            <Button className="gap-2 bg-primary text-primary-foreground shadow-gold-glow font-semibold">
                                 <Plus className="w-4 h-4" /> Add Admin
                             </Button>
                         </DialogTrigger>
-                        <DialogContent className="max-w-lg">
+                        <DialogContent className="max-w-lg bg-card border-border shadow-card">
                             <DialogHeader>
-                                <DialogTitle>Add Administrator</DialogTitle>
+                                <div className="deco-divider mb-2 w-36"><span>NEW ADMIN</span></div>
+                                <DialogTitle className="font-display text-xl text-foreground">Add Administrator</DialogTitle>
                             </DialogHeader>
 
                             <div className="space-y-4 py-4">
                                 <div className="space-y-2">
-                                    <Label>Email</Label>
-                                    <Input
-                                        type="email"
-                                        placeholder="admin@example.com"
-                                        value={newAdminEmail}
-                                        onChange={(e) => setNewAdminEmail(e.target.value)}
-                                    />
+                                    <label className="label-caps">Email</label>
+                                    <Input type="email" placeholder="admin@example.com" value={newAdminEmail} onChange={(e) => setNewAdminEmail(e.target.value)} className="bg-background border-border" />
                                 </div>
 
                                 <div className="space-y-2">
-                                    <Label>Password</Label>
-                                    <Input
-                                        type="password"
-                                        placeholder="At least 8 characters"
-                                        value={newAdminPassword}
-                                        onChange={(e) => setNewAdminPassword(e.target.value)}
-                                    />
+                                    <label className="label-caps">Password</label>
+                                    <Input type="password" placeholder="At least 8 characters" value={newAdminPassword} onChange={(e) => setNewAdminPassword(e.target.value)} className="bg-background border-border" />
                                 </div>
 
                                 <div className="space-y-2">
-                                    <Label>Name (Optional)</Label>
-                                    <Input placeholder="John Doe" value={newAdminName} onChange={(e) => setNewAdminName(e.target.value)} />
+                                    <label className="label-caps">Name (Optional)</label>
+                                    <Input placeholder="John Doe" value={newAdminName} onChange={(e) => setNewAdminName(e.target.value)} className="bg-background border-border" />
                                 </div>
 
                                 <div className="space-y-2">
-                                    <Label>Role</Label>
+                                    <label className="label-caps">Role</label>
                                     <Select value={newAdminRole} onValueChange={setNewAdminRole}>
-                                        <SelectTrigger>
-                                            <SelectValue placeholder="Select a role" />
-                                        </SelectTrigger>
-                                        <SelectContent>
+                                        <SelectTrigger className="bg-background border-border"><SelectValue placeholder="Select a role" /></SelectTrigger>
+                                        <SelectContent className="bg-card border-border">
                                             <SelectItem value="admin">Venue Admin</SelectItem>
                                             <SelectItem value="super_admin">Super Admin</SelectItem>
                                         </SelectContent>
@@ -331,29 +317,23 @@ export default function AdminUsersPage() {
                                 </div>
 
                                 <div className="space-y-2">
-                                    <Label>Assign Venue (optional)</Label>
+                                    <label className="label-caps">Assign Venue</label>
                                     <Select value={newAdminVenueId} onValueChange={setNewAdminVenueId}>
-                                        <SelectTrigger>
-                                            <SelectValue placeholder="Choose a venue (optional)" />
-                                        </SelectTrigger>
-                                        <SelectContent>
+                                        <SelectTrigger className="bg-background border-border"><SelectValue placeholder="Choose a venue (optional)" /></SelectTrigger>
+                                        <SelectContent className="bg-card border-border">
                                             <SelectItem value="none">No venue assigned</SelectItem>
                                             {venueOptions.map((v) => (
-                                                <SelectItem key={v.id} value={v.id}>
-                                                    {v.name}
-                                                </SelectItem>
+                                                <SelectItem key={v.id} value={v.id}>{v.name}</SelectItem>
                                             ))}
                                         </SelectContent>
                                     </Select>
                                 </div>
+
                             </div>
 
                             <DialogFooter>
-                                <Button variant="outline" onClick={() => setIsAddOpen(false)}>Cancel</Button>
-                                <Button
-                                    onClick={() => createAdmin.mutate()}
-                                    disabled={createAdmin.isPending || !newAdminEmail || newAdminPassword.length < 8}
-                                >
+                                <Button variant="outline" onClick={() => setIsAddOpen(false)} className="border-border">Cancel</Button>
+                                <Button onClick={() => createAdmin.mutate()} disabled={createAdmin.isPending || !newAdminEmail || newAdminPassword.length < 8} className="bg-primary text-primary-foreground font-semibold shadow-gold-glow">
                                     {createAdmin.isPending && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
                                     Create Admin
                                 </Button>
@@ -363,16 +343,11 @@ export default function AdminUsersPage() {
                 </div>
             </div>
 
-            <div className="bg-card rounded-xl border shadow-sm overflow-hidden min-h-[500px]">
-                <div className="p-4 border-b flex items-center justify-between gap-4">
-                    <div className="relative w-full max-w-sm">
+            <div className="bg-card border border-border rounded-lg overflow-hidden ticket-notch">
+                <div className="p-4 border-b border-border flex items-center gap-3">
+                    <div className="relative flex-1 max-w-sm">
                         <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                        <Input
-                            placeholder="Search by name or email..."
-                            className="pl-9 bg-muted/50"
-                            value={search}
-                            onChange={(e) => setSearch(e.target.value)}
-                        />
+                        <Input placeholder="Search by name or email..." className="pl-9 bg-background border-border" value={search} onChange={(e) => setSearch(e.target.value)} />
                     </div>
                 </div>
 
@@ -389,13 +364,13 @@ export default function AdminUsersPage() {
                     <div className="overflow-x-auto">
                         <Table>
                             <TableHeader>
-                                <TableRow className="bg-muted/50 hover:bg-muted/50">
-                                    <TableHead>Email</TableHead>
-                                    <TableHead>Name</TableHead>
-                                    <TableHead>Role</TableHead>
-                                    <TableHead>Venue</TableHead>
-                                    <TableHead>Status</TableHead>
-                                    <TableHead className="text-right">Actions</TableHead>
+                                <TableRow className="border-border hover:bg-transparent">
+                                    <TableHead className="label-caps text-muted-foreground">Email</TableHead>
+                                    <TableHead className="label-caps text-muted-foreground">Name</TableHead>
+                                    <TableHead className="label-caps text-muted-foreground">Role</TableHead>
+                                    <TableHead className="label-caps text-muted-foreground">Venue</TableHead>
+                                    <TableHead className="label-caps text-muted-foreground">Status</TableHead>
+                                    <TableHead className="label-caps text-muted-foreground text-right">Actions</TableHead>
                                 </TableRow>
                             </TableHeader>
                             <TableBody>
@@ -407,22 +382,28 @@ export default function AdminUsersPage() {
                                             : "—";
 
                                     return (
-                                        <TableRow key={adminId || admin.email}>
-                                            <TableCell className="font-medium text-primary">{admin.email}</TableCell>
-                                            <TableCell className="text-muted-foreground">{admin.name || "—"}</TableCell>
+                                        <TableRow key={adminId || admin.email} className="border-border hover:bg-white/[0.02] transition-colors">
+                                            <TableCell className="font-medium text-foreground text-sm">{admin.email}</TableCell>
+                                            <TableCell className="text-muted-foreground text-sm">{admin.name || "—"}</TableCell>
                                             <TableCell>
-                                                <Badge variant={admin.role === "super_admin" ? "default" : "outline"} className="capitalize">
+                                                <Badge className={`text-[10px] font-bold uppercase tracking-wider ${admin.role === "super_admin"
+                                                    ? "bg-primary/10 text-primary border-primary/30"
+                                                    : "bg-card border-border text-muted-foreground"
+                                                    }`}>
                                                     {String(admin.role).replace("_", " ")}
                                                 </Badge>
                                             </TableCell>
-                                            <TableCell className="text-muted-foreground">
+                                            <TableCell className="text-muted-foreground text-sm">
                                                 {venueName}
                                                 {!admin?.venueId && admin.role !== "super_admin" && (
-                                                    <Badge variant="outline" className="ml-2 text-xs">No venue</Badge>
+                                                    <Badge className="ml-2 text-[10px] bg-status-reserved/10 text-status-reserved border-status-reserved/30">No venue</Badge>
                                                 )}
                                             </TableCell>
                                             <TableCell>
-                                                <Badge variant={admin.status === "active" ? "secondary" : "destructive"}>
+                                                <Badge className={`text-[10px] font-bold uppercase tracking-wider ${admin.status === "active"
+                                                    ? "bg-status-available/10 text-status-available border-status-available/30"
+                                                    : "bg-destructive/10 text-destructive border-destructive/30"
+                                                    }`}>
                                                     {admin.status}
                                                 </Badge>
                                             </TableCell>
@@ -474,59 +455,47 @@ export default function AdminUsersPage() {
 
             {/* Edit Admin Dialog */}
             <Dialog open={isEditOpen} onOpenChange={setIsEditOpen}>
-                <DialogContent className="max-w-lg">
+                <DialogContent className="max-w-lg bg-card border-border shadow-card">
                     <DialogHeader>
-                        <DialogTitle>Edit Admin</DialogTitle>
+                        <div className="deco-divider mb-2 w-32"><span>EDIT ADMIN</span></div>
+                        <DialogTitle className="font-display text-xl text-foreground">Edit Admin</DialogTitle>
                     </DialogHeader>
 
                     <div className="space-y-4 py-4">
                         <div className="space-y-1">
-                            <Label>Email</Label>
-                            <div className="text-sm text-muted-foreground">{editingAdmin?.email || "—"}</div>
+                            <label className="label-caps">Email</label>
+                            <div className="text-sm text-foreground">{editingAdmin?.email || "—"}</div>
                         </div>
 
                         <div className="space-y-2">
-                            <Label>Status</Label>
+                            <label className="label-caps">Status</label>
                             <Select value={editStatus} onValueChange={(v) => setEditStatus(v as any)}>
-                                <SelectTrigger><SelectValue placeholder="Select status" /></SelectTrigger>
-                                <SelectContent>
-                                    <SelectItem value="active">active</SelectItem>
-                                    <SelectItem value="disabled">disabled</SelectItem>
+                                <SelectTrigger className="bg-background border-border"><SelectValue placeholder="Select status" /></SelectTrigger>
+                                <SelectContent className="bg-card border-border">
+                                    <SelectItem value="active">Active</SelectItem>
+                                    <SelectItem value="disabled">Disabled</SelectItem>
                                 </SelectContent>
                             </Select>
                         </div>
 
                         <div className="space-y-2">
-                            <Label>Assigned Venue</Label>
+                            <label className="label-caps">Assigned Venue</label>
                             <Select value={editVenueId} onValueChange={setEditVenueId}>
-                                <SelectTrigger><SelectValue placeholder="Choose a venue" /></SelectTrigger>
-                                <SelectContent>
+                                <SelectTrigger className="bg-background border-border"><SelectValue placeholder="Choose a venue" /></SelectTrigger>
+                                <SelectContent className="bg-card border-border">
                                     <SelectItem value="none">No venue assigned</SelectItem>
                                     {venueOptions.map((v) => (
                                         <SelectItem key={v.id} value={v.id}>{v.name}</SelectItem>
                                     ))}
                                 </SelectContent>
                             </Select>
-                            <p className="text-xs text-muted-foreground">
-                                Venue Admins without a venue should be blocked from managing anything (enforce on backend).
-                            </p>
+                            <p className="text-xs text-muted-foreground">Venue Admins without a venue cannot access the dashboard.</p>
                         </div>
                     </div>
 
                     <DialogFooter>
-                        <Button variant="outline" onClick={() => setIsEditOpen(false)}>Cancel</Button>
-                        <Button
-                            onClick={() => {
-                                const id = normalizeId(editingAdmin);
-                                if (!id) return;
-                                updateAdmin.mutate({
-                                    id,
-                                    status: editStatus,
-                                    venueId: editVenueId === "none" ? null : editVenueId,
-                                });
-                            }}
-                            disabled={!editingAdmin || updateAdmin.isPending}
-                        >
+                        <Button variant="outline" onClick={() => setIsEditOpen(false)} className="border-border">Cancel</Button>
+                        <Button onClick={() => { const id = normalizeId(editingAdmin); if (!id) return; updateAdmin.mutate({ id, status: editStatus, venueId: editVenueId === "none" ? null : editVenueId }); }} disabled={!editingAdmin || updateAdmin.isPending} className="bg-primary text-primary-foreground shadow-gold-glow font-semibold">
                             {updateAdmin.isPending && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
                             Save Changes
                         </Button>
