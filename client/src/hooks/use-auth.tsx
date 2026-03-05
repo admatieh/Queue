@@ -1,5 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { useEffect, useState, createContext, useContext, ReactNode } from "react";
+import { createContext, useContext, ReactNode } from "react";
 import { api } from "@shared/routes";
 import { useToast } from "@/hooks/use-toast";
 import { useLocation } from "wouter";
@@ -8,7 +8,7 @@ import { type User, type InsertUser } from "@shared/schema";
 type AuthContextType = {
   user: User | null;
   isAuthenticated: boolean;
-  isLoading: boolean; // still loading / checking session
+  isLoading: boolean;
   error: Error | null;
   loginMutation: any;
   logoutMutation: any;
@@ -23,39 +23,33 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const queryClient = useQueryClient();
   const [, setLocation] = useLocation();
 
-  const [user, setUser] = useState<User | null>(null);
-  const [initialized, setInitialized] = useState(false); // NEW FLAG
+  // --- FETCH CURRENT USER ---
+  const {
+    data: user,
+    isLoading,
+    error,
+  } = useQuery<User | null>({
+    queryKey: [api.auth.me.path],
+    queryFn: async () => {
+      const res = await fetch(api.auth.me.path, {
+        credentials: "include", // 🔥 مهم مع httpOnly cookie
+      });
 
-  // --- LOGOUT ---
+      if (res.status === 401) return null;
+      if (!res.ok) throw new Error("Failed to fetch user");
+
+      return await res.json();
+    },
+    staleTime: 0,
+    refetchOnMount: true,
+  });
+
+  // --- LOGOUT HANDLER ---
   const handleLogout = () => {
-    setUser(null);
     queryClient.setQueryData([api.auth.me.path], null);
     setLocation("/login");
     toast({ title: "Logged out", description: "Session ended." });
   };
-
-  // --- FETCH CURRENT USER ---
-  const { refetch, isLoading, error } = useQuery({
-    queryKey: [api.auth.me.path],
-    queryFn: async () => {
-      const res = await fetch(api.auth.me.path, {
-        credentials: "include",
-      });
-
-      if (res.status === 401) {
-        setUser(null);
-        return null; // not logged in
-      }
-
-      if (!res.ok) throw new Error("Failed to fetch user");
-
-      const data: User = await res.json();
-      setUser(data);
-      return data;
-    },
-    staleTime: Infinity,
-    enabled: false, // we manually call refetch
-  });
 
   // --- LOGIN ---
   const loginMutation = useMutation({
@@ -72,13 +66,26 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         throw new Error(errData.message || "Login failed");
       }
 
-      return await res.json(); // { user }
+      return await res.json();
     },
+
     onSuccess: (data: { user: User }) => {
-      setUser(data.user);
       queryClient.setQueryData([api.auth.me.path], data.user);
-      toast({ title: "Welcome!", description: `Logged in as ${data.user.email}` });
+
+      toast({
+        title: "Welcome!",
+        description: `Logged in as ${data.user.email}`,
+      });
+
       setLocation("/venues");
+    },
+
+    onError: (error: any) => {
+      toast({
+        title: "Login failed",
+        description: error.message || "Wrong email or password",
+        variant: "destructive",
+      });
     },
   });
 
@@ -97,12 +104,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         throw new Error(errData.message || "Registration failed");
       }
 
-      return await res.json(); // { user }
+      return await res.json();
     },
+
     onSuccess: (data: { user: User }) => {
-      setUser(data.user);
       queryClient.setQueryData([api.auth.me.path], data.user);
-      toast({ title: "Welcome!", description: "Account created successfully" });
+
+      toast({
+        title: "Welcome!",
+        description: "Account created successfully",
+      });
+
       setLocation("/venues");
     },
   });
@@ -118,20 +130,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     onSuccess: handleLogout,
   });
 
-  // --- initialize on page load ---
-  useEffect(() => {
-    (async () => {
-      await refetch();
-      setInitialized(true); // ✅ mark as initialized
-    })();
-  }, []);
-
   return (
     <AuthContext.Provider
       value={{
-        user,
+        user: user ?? null,
         isAuthenticated: !!user,
-        isLoading: !initialized || isLoading, // true until initial session check is done
+        isLoading,
         error: error as Error | null,
         loginMutation,
         logoutMutation,

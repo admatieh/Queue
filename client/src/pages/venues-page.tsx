@@ -1,7 +1,7 @@
 import { useState, useMemo } from "react";
 import { Link, useLocation } from "wouter";
 import { useVenues } from "@/hooks/use-venues";
-import { useAuth } from "@/hooks/use-auth"; // <-- import your auth hook
+import { useAuth } from "@/hooks/use-auth";
 import { LayoutShell } from "@/components/layout-shell";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";

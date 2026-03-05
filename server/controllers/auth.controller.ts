@@ -12,24 +12,37 @@ const generateToken = (user: any) =>
 
 // --- LOGIN ---
 export const login = async (req: Request, res: Response) => {
-  const { email, password } = req.body;
+  try {
+    const { email, password } = req.body;
 
-  const user = await storage.getUserByEmail(email);
-  if (!user || !(await comparePasswords(password, user.password as string))) {
-    return res.status(401).json({ message: "Invalid credentials" });
+    const user = await storage.getUserByEmail(email);
+
+    if (!user) {
+      return res.status(401).json({ message: "Email not found" });
+    }
+
+    if (!(await comparePasswords(password, user.password as string))) {
+      return res.status(401).json({ message: "Wrong password" });
+    }
+
+    const token = jwt.sign(
+      { id: user.id, role: user.role },
+      process.env.JWT_SECRET as string,
+      { expiresIn: "1d" }
+    );
+
+    res.cookie("token", token, {
+      httpOnly: true,
+      secure: false,
+      sameSite: "lax",
+    });
+
+    res.json({ user });
+
+  } catch (error) {
+    res.status(500).json({ message: "Login failed" });
   }
-
-  const token = generateToken(user);
-
-  res.cookie("token", token, {
-    httpOnly: true,
-    secure: false, // true in production (HTTPS)
-    sameSite: "lax",
-  });
-
-  res.json({ user });
 };
-
 // --- REGISTER ---
 export const register = async (req: Request, res: Response) => {
   const existingUser = await storage.getUserByEmail(req.body.email);

@@ -7,6 +7,9 @@ import { serveStatic } from "../config/static";
 import path from "path";
 import express, { type Express } from "express";
 import notificationRoutes from "./Notification.routes";
+import cookieParser from "cookie-parser";
+
+
 
 
 export async function registerRoutes(
@@ -18,7 +21,7 @@ export async function registerRoutes(
   app.get("/api/health", (_req, res) => {
     res.json({ status: "ok" });
   });
- // 
+    app.use(cookieParser());
     app.use("/api/notifications", notificationRoutes);
   // === PARSERS ===
   app.use(express.json());
