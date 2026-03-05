@@ -13,6 +13,14 @@ import { useAuth } from "@/hooks/use-auth";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import type { User } from "@shared/schema";
 import { useAdminVenues } from "@/hooks/use-venues";
+import { getToken } from "@/lib/queryClient";
+
+function authHeaders(extra?: Record<string, string>): Record<string, string> {
+    const headers: Record<string, string> = { ...extra };
+    const token = getToken();
+    if (token) headers["Authorization"] = `Bearer ${token}`;
+    return headers;
+}
 
 function normalizeId(u: any) {
     return u?._id || u?.id;
@@ -70,7 +78,7 @@ export default function AdminUsersPage() {
         queryKey: ["/api/admin/users", search],
         queryFn: async () => {
             const qs = search ? `?search=${encodeURIComponent(search)}` : "";
-            const res = await fetch(`/api/admin/users${qs}`, { credentials: "include" });
+            const res = await fetch(`/api/admin/users${qs}`, { headers: authHeaders() });
             if (!res.ok) throw new Error(await readError(res, "Failed to fetch admins"));
             return (await res.json()) as { data: User[]; total: number };
         },
@@ -82,7 +90,7 @@ export default function AdminUsersPage() {
         queryKey: ["/api/admin/all-users", promoteSearch],
         queryFn: async () => {
             const qs = promoteSearch ? `?search=${encodeURIComponent(promoteSearch)}` : "";
-            const res = await fetch(`/api/admin/all-users${qs}`, { credentials: "include" });
+            const res = await fetch(`/api/admin/all-users${qs}`, { headers: authHeaders() });
             if (!res.ok) throw new Error(await readError(res, "Failed to fetch users"));
             return (await res.json()) as { data: User[]; total: number };
         },
@@ -101,8 +109,7 @@ export default function AdminUsersPage() {
 
             const res = await fetch("/api/admin/users", {
                 method: "POST",
-                credentials: "include",
-                headers: { "Content-Type": "application/json" },
+                headers: authHeaders({ "Content-Type": "application/json" }),
                 body: JSON.stringify(payload),
             });
 
@@ -130,8 +137,7 @@ export default function AdminUsersPage() {
 
             const res = await fetch("/api/admin/users/promote", {
                 method: "POST",
-                credentials: "include",
-                headers: { "Content-Type": "application/json" },
+                headers: authHeaders({ "Content-Type": "application/json" }),
                 body: JSON.stringify(payload),
             });
 
@@ -153,8 +159,7 @@ export default function AdminUsersPage() {
         mutationFn: async (payload: { id: string; status: "active" | "disabled"; venueId: string | null }) => {
             const res = await fetch(`/api/admin/users/${payload.id}`, {
                 method: "PATCH",
-                credentials: "include",
-                headers: { "Content-Type": "application/json" },
+                headers: authHeaders({ "Content-Type": "application/json" }),
                 body: JSON.stringify({ status: payload.status, venueId: payload.venueId }),
             });
 

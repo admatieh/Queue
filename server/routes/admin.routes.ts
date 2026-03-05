@@ -26,6 +26,8 @@ const handleUpload = (req: any, res: any, next: any) => {
 // === SUPER ADMIN ROUTES ===
 router.get("/users", requireSuperAdmin, superAdminController.listAdmins);
 router.post("/users", requireSuperAdmin, superAdminController.createAdmin);
+router.post("/users/promote", requireSuperAdmin, superAdminController.promoteUser);  // must be before /users/:id
+router.get("/all-users", requireSuperAdmin, superAdminController.listAllUsers);       // regular users for promote dialog
 router.put("/users/:id", requireSuperAdmin, superAdminController.updateAdmin);
 router.patch("/users/:id", requireSuperAdmin, superAdminController.updateAdmin);   // client sends PATCH
 router.delete("/users/:id", requireSuperAdmin, superAdminController.deleteAdmin);
