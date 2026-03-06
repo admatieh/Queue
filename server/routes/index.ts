@@ -16,16 +16,13 @@ export async function registerRoutes(
         res.json({ status: "ok" });
     });
 
-    // Set up authentication (passport)
+    // JWT is stateless — setupAuth is a no-op but kept for structure
     setupAuth(app);
 
-    // Api Routes
-    // Note: @shared/routes specifies paths like '/api/venues'.
-    // We mount at '/' so the full paths from shared schema naturally match.
-    // Exception: auth routes don't exist in @shared/routes, manually prefix them.
+    // Auth routes (login / register / logout / me)
     app.use("/api/auth", authRoutes);
 
-    // Mount other feature routers at root '/'
+    // Feature routes
     app.use("/", venueRoutes);
     app.use("/", reservationRoutes);
     app.use("/api/admin", adminRoutes);

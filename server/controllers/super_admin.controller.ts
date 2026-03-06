@@ -7,7 +7,7 @@ import { storage } from "../services/storage.service";
 import { insertAdminSchema, updateAdminSchema } from "@shared/schema";
 import { z } from "zod";
 import mongoose from "mongoose";
-import bcrypt from "bcrypt";
+import { hashPassword } from "../utils/crypto";
 import { UserVenueNotificationSubscriptionModel, UserNotificationModel } from "../models/Notification";
 
 export async function logAudit(actorId: string, action: string, targetType: string, targetId: string, metadata: any = {}) {
@@ -68,7 +68,7 @@ export const createAdmin = async (req: Request, res: Response) => {
             return res.status(409).json({ message: "Email already in use" });
         }
 
-        const passwordHash = await bcrypt.hash(input.password, 10);
+        const passwordHash = await hashPassword(input.password);
         const newAdmin = await UserModel.create({
             email: input.email,
             passwordHash,
@@ -203,6 +203,74 @@ export const listAuditLogs = async (req: Request, res: Response) => {
 
     const total = await AuditLogModel.countDocuments();
     res.json({ data: logs, total, page, limit });
+};
+
+/** GET /api/admin/all-users — list regular (non-admin) users for the Promote dialog */
+export const listAllUsers = async (req: Request, res: Response) => {
+    const page = parseInt(req.query.page as string) || 1;
+    const limit = parseInt(req.query.limit as string) || 50;
+    const search = req.query.search as string;
+
+    const query: any = { role: "user", deletedAt: null };
+    if (search) {
+        query.$or = [
+            { email: { $regex: search, $options: "i" } },
+            { name: { $regex: search, $options: "i" } },
+        ];
+    }
+
+    const users = await UserModel.find(query)
+        .select("-passwordHash")
+        .skip((page - 1) * limit)
+        .limit(limit)
+        .sort({ createdAt: -1 });
+
+    const total = await UserModel.countDocuments(query);
+    res.json({ data: users, total, page, limit });
+};
+
+/** POST /api/admin/users/promote — promote a regular user to admin/super_admin */
+export const promoteUser = async (req: Request, res: Response) => {
+    try {
+        const { userId, role, venueId } = req.body as { userId: string; role: string; venueId?: string };
+        const actor = req.user as any;
+
+        if (!userId || !role) {
+            return res.status(400).json({ message: "userId and role are required" });
+        }
+        if (!["admin", "super_admin"].includes(role)) {
+            return res.status(400).json({ message: "Invalid role" });
+        }
+        if (role === "admin" && !venueId) {
+            return res.status(400).json({ message: "Venue assignment is required for admin role" });
+        }
+
+        const targetUser = await UserModel.findById(userId);
+        if (!targetUser) return res.status(404).json({ message: "User not found" });
+
+        if (venueId) {
+            const venue = await VenueModel.findById(venueId);
+            if (!venue) return res.status(400).json({ message: "Selected venue does not exist" });
+        }
+
+        // Update role (and venueId if provided)
+        const updated = await UserModel.findByIdAndUpdate(
+            userId,
+            { $set: { role, ...(venueId ? { venueId } : {}) } },
+            { new: true }
+        ).select("-passwordHash");
+
+        // Create venue assignment for admin role
+        if (role === "admin" && venueId) {
+            await AdminVenueAssignmentModel.deleteMany({ adminId: userId });
+            await AdminVenueAssignmentModel.create({ adminId: userId, venueId, assignedBy: actor.id });
+        }
+
+        await logAudit(actor.id, "PROMOTE_USER", "user", userId, { role, venueId });
+        res.json(updated);
+    } catch (err) {
+        throw err;
+    }
 };
 
 export const dispatchNotification = async (req: Request, res: Response) => {

@@ -1,88 +1,288 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Outfit:wght@500;600;700;800&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,600;0,700;1,600;1,700&family=Inter:wght@400;500;600;700&display=swap');
 
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
-:root {
-  /* Vibrant & Clean Palette */
-  --background: 210 20% 98%;
-  --foreground: 222 47% 11%;
-  
-  --primary: 246 83% 60%; /* Vivid Purple-Blue */
-  --primary-foreground: 210 40% 98%;
-  
-  --secondary: 210 40% 96%;
-  --secondary-foreground: 222 47% 11%;
-  
-  --muted: 210 40% 96%;
-  --muted-foreground: 215 16% 47%;
-  
-  --accent: 262 83% 65%; /* Soft Purple */
-  --accent-foreground: 210 40% 98%;
-  
-  --destructive: 0 84% 60%;
-  --destructive-foreground: 210 40% 98%;
+/* ============================================================
+   NOIR DECO — Theatre de Luxe
+   Design System: Direction A
+   ============================================================ */
 
-  --border: 214 32% 91%;
-  --input: 214 32% 91%;
-  --ring: 246 83% 60%;
-  
-  --radius: 0.75rem;
+:root {
+  /* Backgrounds */
+  --background:        220 18% 8%;   /* near-black ink */
+  --surface:           220 15% 13%;  /* card surfaces */
+  --surface-raised:    220 12% 18%;  /* hover / elevated panels */
+
+  /* Foreground */
+  --foreground:        45 30% 92%;   /* warm cream text */
+  --muted-foreground:  45 15% 55%;   /* muted captions */
+
+  /* Primary / Accent */
+  --primary:           43 80% 58%;   /* aged gold */
+  --primary-foreground: 220 18% 8%; /* ink on gold */
+  --primary-border:    hsl(43 60% 45% / 0.5);
+
+  /* Secondary */
+  --secondary:         220 12% 18%;
+  --secondary-foreground: 45 30% 92%;
+  --secondary-border:  hsl(220 10% 22%);
+
+  /* Muted */
+  --muted:             220 12% 18%;
+  --muted-border:      hsl(220 10% 22%);
+
+  /* Accent (same as primary for shadcn compat) */
+  --accent:            43 80% 58%;
+  --accent-foreground: 220 18% 8%;
+  --accent-border:     hsl(43 60% 45% / 0.5);
+
+  /* Destructive / Crimson */
+  --destructive:       2 72% 48%;
+  --destructive-foreground: 45 30% 92%;
+  --destructive-border: hsl(2 60% 40% / 0.5);
+
+  /* Borders & Ring */
+  --border:            220 10% 22%;
+  --border-gold:       43 60% 45%;
+  --input:             220 10% 22%;
+  --ring:              43 80% 58%;
+
+  /* Card / Popover */
+  --card:              220 15% 13%;
+  --card-foreground:   45 30% 92%;
+  --card-border:       220 10% 22%;
+  --popover:           220 15% 13%;
+  --popover-foreground: 45 30% 92%;
+  --popover-border:    220 10% 22%;
+
+  /* Sidebar */
+  --sidebar:           220 18% 10%;
+  --sidebar-foreground: 45 30% 92%;
+  --sidebar-border:    220 10% 22%;
+  --sidebar-ring:      43 80% 58%;
+  --sidebar-primary:   43 80% 58%;
+  --sidebar-primary-foreground: 220 18% 8%;
+  --sidebar-accent:    220 12% 18%;
+  --sidebar-accent-foreground: 45 30% 92%;
+  --sidebar-primary-border: hsl(43 60% 45% / 0.5);
+  --sidebar-accent-border: hsl(220 10% 22%);
+
+  /* Status */
+  --status-available:  155 55% 45%;
+  --status-occupied:   2 72% 48%;
+  --status-reserved:   38 70% 52%;
+  --status-selected:   43 80% 58%;
+
+  /* Radius */
+  --radius: 0.5rem;
+
+  /* Charts */
+  --chart-1: 43 80% 58%;
+  --chart-2: 155 55% 45%;
+  --chart-3: 2 72% 48%;
+  --chart-4: 220 50% 65%;
+  --chart-5: 280 50% 60%;
 }
 
-.dark {
-  --background: 222 47% 11%;
-  --foreground: 210 40% 98%;
-  
-  --primary: 246 83% 65%;
-  --primary-foreground: 222 47% 11%;
-  
-  --secondary: 217 33% 17%;
-  --secondary-foreground: 210 40% 98%;
-  
-  --muted: 217 33% 17%;
-  --muted-foreground: 215 20% 65%;
-  
-  --accent: 262 83% 65%;
-  --accent-foreground: 210 40% 98%;
-  
-  --destructive: 0 62% 30%;
-  --destructive-foreground: 210 40% 98%;
-  
-  --border: 217 33% 17%;
-  --input: 217 33% 17%;
-  --ring: 246 83% 65%;
+/* Grain texture overlay */
+body::after {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  pointer-events: none;
+  opacity: 0.028;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='1'/%3E%3C/svg%3E");
+  background-size: 200px 200px;
 }
 
 @layer base {
   * {
     @apply border-border;
+    box-sizing: border-box;
   }
+
+  html {
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
   body {
-    @apply bg-background text-foreground antialiased;
+    background-color: hsl(var(--background));
+    color: hsl(var(--foreground));
     font-family: 'Inter', sans-serif;
+    font-size: 15px;
+    line-height: 1.6;
   }
+
   h1, h2, h3, h4, h5, h6 {
-    font-family: 'Outfit', sans-serif;
+    font-family: 'Playfair Display', serif;
+    letter-spacing: -0.02em;
+    line-height: 1.15;
   }
 }
 
-/* Custom Utilities */
+/* ============================================================
+   SHARED UTILITIES
+   ============================================================ */
+
+/* Gold hairline rule */
+.gold-rule::before {
+  content: "";
+  display: block;
+  width: 3rem;
+  height: 1px;
+  background: hsl(var(--border-gold));
+  margin-bottom: 1rem;
+}
+
+/* Art-deco divider */
+.deco-divider {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  color: hsl(var(--border-gold) / 0.5);
+  font-size: 10px;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+}
+.deco-divider::before,
+.deco-divider::after {
+  content: "";
+  flex: 1;
+  height: 1px;
+  background: hsl(var(--border-gold) / 0.3);
+}
+
+/* Glass panel */
 .glass-panel {
-  @apply bg-white/70 dark:bg-black/70 backdrop-blur-md border border-white/20 dark:border-white/10 shadow-xl;
+  background: hsl(var(--surface) / 0.8);
+  backdrop-filter: blur(12px);
+  border: 1px solid hsl(var(--border));
+  box-shadow: 0 4px 24px hsl(220 18% 4% / .5);
 }
 
-.text-gradient {
-  @apply bg-clip-text text-transparent bg-gradient-to-r from-primary to-accent;
+/* Text gradient (gold) */
+.text-gradient-gold {
+  background: linear-gradient(135deg, hsl(43 80% 68%), hsl(38 70% 48%));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
 }
 
-/* Seat Grid Animation */
+/* Gold glow shadow utility */
+.shadow-gold-glow {
+  box-shadow: 0 0 20px hsl(43 80% 58% / 0.25), 0 4px 24px hsl(220 18% 4% / .5);
+}
+
+/* ============================================================
+   SEAT MAP
+   ============================================================ */
+
 @keyframes pop-in {
-  0% { transform: scale(0.8); opacity: 0; }
+  0%   { transform: scale(0.7); opacity: 0; }
+  60%  { transform: scale(1.08); }
   100% { transform: scale(1); opacity: 1; }
 }
 
 .seat-enter {
-  animation: pop-in 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  animation: pop-in 0.28s cubic-bezier(0.16, 1, 0.3, 1) both;
 }
+
+/* Stage bar gradient */
+.stage-bar {
+  height: 4px;
+  width: 100%;
+  background: linear-gradient(90deg, transparent, hsl(var(--primary) / 0.4), transparent);
+}
+
+/* Ticket notch effect on cards */
+.ticket-notch {
+  position: relative;
+  overflow: hidden;
+}
+.ticket-notch::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: linear-gradient(90deg, hsl(var(--border-gold) / 0.8), hsl(var(--border-gold) / 0.2), hsl(var(--border-gold) / 0.8));
+}
+
+/* ============================================================
+   ANIMATION UTILITIES
+   ============================================================ */
+
+@keyframes fade-up {
+  from { opacity: 0; transform: translateY(14px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes fade-in {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+.animate-fade-up {
+  animation: fade-up 0.35s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+.animate-fade-in {
+  animation: fade-in 0.3s ease-out both;
+}
+
+/* Stagger helpers */
+.stagger-1 { animation-delay: 0.05s; }
+.stagger-2 { animation-delay: 0.10s; }
+.stagger-3 { animation-delay: 0.15s; }
+.stagger-4 { animation-delay: 0.20s; }
+.stagger-5 { animation-delay: 0.25s; }
+
+/* ============================================================
+   ADMIN LABEL CAPS
+   ============================================================ */
+.label-caps {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: hsl(var(--muted-foreground));
+}
+
+/* ============================================================
+   SCROLLBAR
+   ============================================================ */
+
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: hsl(var(--background));
+}
+::-webkit-scrollbar-thumb {
+  background: hsl(var(--border));
+  border-radius: 3px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: hsl(var(--border-gold) / 0.5);
+}
+
+/* ============================================================
+   ACCORDION (shadcn animation)
+   ============================================================ */
+
+@keyframes accordion-down {
+  from { height: 0; }
+  to   { height: var(--radix-accordion-content-height); }
+}
+@keyframes accordion-up {
+  from { height: var(--radix-accordion-content-height); }
+  to   { height: 0; }
+}
+.animate-accordion-down { animation: accordion-down 0.2s ease-out; }
+.animate-accordion-up   { animation: accordion-up   0.2s ease-out; }

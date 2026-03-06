@@ -11,246 +11,209 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { insertVenueSchema, type InsertVenue } from "@shared/schema";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Loader2, ArrowLeft, Image as ImageIcon, Upload, Trash, LayoutGrid } from "lucide-react";
+import { useQueryClient } from "@tanstack/react-query";
+import {
+    Loader2, ArrowLeft, Upload, Trash2, LayoutGrid, MapPin,
+    Star, Image as ImageIcon, GripVertical, X,
+} from "lucide-react";
 
 export default function AdminVenueEditPage() {
     const { id } = useParams();
-    const { data: venue, isLoading: isVenueLoading } = useVenue(id || "");
+    const { data: venue, isLoading } = useVenue(id || "");
     const updateVenue = useUpdateVenue();
     const { toast } = useToast();
-    const [isUploading, setIsUploading] = useState(false);
+    const qc = useQueryClient();
     const fileInputRef = useRef<HTMLInputElement>(null);
+    const [isUploading, setIsUploading] = useState(false);
+    const [deletingUrl, setDeletingUrl] = useState<string | null>(null);
 
     const form = useForm<InsertVenue>({
         resolver: zodResolver(insertVenueSchema.partial()),
-        defaultValues: {
-            name: "",
-            location: "",
-            description: "",
-            capacity: 0,
-            openTime: "09:00",
-            closeTime: "22:00",
-            timezone: "UTC",
-            category: "tech",
-            status: "active",
-        },
+        defaultValues: { name: "", location: "", address: "", description: "", capacity: 0, openTime: "09:00", closeTime: "22:00", timezone: "UTC", category: "tech", status: "active" },
         values: venue ? {
-            name: venue.name || "",
-            location: venue.location || "",
-            description: venue.description || "",
-            capacity: venue.capacity || 0,
-            openTime: venue.openTime || "09:00",
-            closeTime: venue.closeTime || "22:00",
-            timezone: venue.timezone || "UTC",
-            category: venue.category || "tech",
-            status: venue.status || "active",
-        } : undefined
+            name: venue.name || "", location: venue.location || "", address: (venue as any).address || "",
+            description: venue.description || "", capacity: venue.capacity || 0,
+            openTime: venue.openTime || "09:00", closeTime: venue.closeTime || "22:00",
+            timezone: venue.timezone || "UTC", category: venue.category || "tech", status: venue.status || "active",
+        } : undefined,
     });
 
     const onSubmit = (data: Partial<InsertVenue>) => {
         if (!id) return;
         updateVenue.mutate({ id, ...data }, {
-            onSuccess: () => toast({ title: "Success", description: "Venue updated effectively." }),
-            onError: (err) => toast({ title: "Error", description: err.message, variant: "destructive" })
+            onSuccess: () => toast({ title: "Saved", description: "Venue updated." }),
+            onError: (e) => toast({ title: "Error", description: e.message, variant: "destructive" }),
         });
     };
 
-    const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const handleUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
         if (!file || !id) return;
-
-        // Validate size (e.g. 5MB)
         if (file.size > 5 * 1024 * 1024) {
-            toast({ title: "File too large", description: "Image must be under 5MB.", variant: "destructive" });
-            return;
+            toast({ title: "Too large", description: "Max 5MB", variant: "destructive" }); return;
         }
-
         setIsUploading(true);
-        const formData = new FormData();
-        formData.append("image", file);
-
+        const fd = new FormData();
+        fd.append("image", file);
         try {
-            const res = await fetch(`/api/admin/venues/${id}/upload`, {
-                method: "POST",
-                body: formData,
-            });
-
-            if (!res.ok) {
-                const err = await res.json();
-                throw new Error(err.message || "Upload failed");
-            }
-
-            toast({ title: "Image uploaded", description: "Venue image updated." });
-            // Reload or invalidate logic usually handled via queryClient in a robust setup,
-            // but modifying window location helps force refresh of image without caching issues directly.
-            window.location.reload();
+            const res = await fetch(`/api/admin/venues/${id}/upload`, { method: "POST", body: fd });
+            if (!res.ok) throw new Error((await res.json()).message || "Upload failed");
+            toast({ title: "Uploaded!", description: "Image added to gallery." });
+            qc.invalidateQueries({ queryKey: ["/api/venues", id] });
+            e.target.value = "";
         } catch (err: any) {
             toast({ title: "Upload failed", description: err.message, variant: "destructive" });
-        } finally {
-            setIsUploading(false);
-        }
+        } finally { setIsUploading(false); }
     };
 
-    if (isVenueLoading) {
-        return (
-            <AdminLayout>
-                <div className="flex justify-center p-12"><Loader2 className="w-8 h-8 animate-spin text-primary" /></div>
-            </AdminLayout>
-        );
-    }
+    const handleDeleteImage = async (imageUrl: string) => {
+        if (!id) return;
+        setDeletingUrl(imageUrl);
+        try {
+            const res = await fetch(`/api/admin/venues/${id}/images`, {
+                method: "DELETE", headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ imageUrl }),
+            });
+            if (!res.ok) throw new Error((await res.json()).message);
+            toast({ title: "Removed", description: "Image deleted." });
+            qc.invalidateQueries({ queryKey: ["/api/venues", id] });
+        } catch (err: any) {
+            toast({ title: "Error", description: err.message, variant: "destructive" });
+        } finally { setDeletingUrl(null); }
+    };
 
-    if (!venue) {
-        return (
-            <AdminLayout>
-                <div className="p-12 text-center text-muted-foreground">Venue not found</div>
-            </AdminLayout>
-        );
-    }
+    const handleSetPrimary = async (imageUrl: string) => {
+        if (!id || !venue) return;
+        const images = (venue as any).images || [];
+        const reordered = [imageUrl, ...images.filter((u: string) => u !== imageUrl)];
+        await fetch(`/api/admin/venues/${id}/images/reorder`, {
+            method: "PUT", headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ images: reordered }),
+        });
+        qc.invalidateQueries({ queryKey: ["/api/venues", id] });
+        toast({ title: "Primary set", description: "First image is now the cover." });
+    };
+
+    const galleryImages: string[] = (venue as any)?.images || (venue?.imageUrl ? [venue.imageUrl] : []);
+
+    if (isLoading) return (
+        <AdminLayout>
+            <div className="flex justify-center p-16"><Loader2 className="w-8 h-8 animate-spin text-primary" /></div>
+        </AdminLayout>
+    );
+
+    if (!venue) return (
+        <AdminLayout>
+            <div className="p-12 text-center text-muted-foreground">Venue not found</div>
+        </AdminLayout>
+    );
 
     return (
         <AdminLayout>
-            <div className="mb-6 flex items-center gap-4">
+            {/* Header */}
+            <div className="mb-8 flex items-center gap-4">
                 <Link href="/admin/venues">
-                    <Button variant="outline" size="icon"><ArrowLeft className="w-4 h-4" /></Button>
+                    <Button variant="outline" size="icon" className="border-border h-9 w-9">
+                        <ArrowLeft className="w-4 h-4" />
+                    </Button>
                 </Link>
                 <div>
-                    <h1 className="text-3xl font-bold tracking-tight">Edit Venue</h1>
-                    <p className="text-muted-foreground mt-1">Update details and imagery for {venue.name}</p>
+                    <div className="deco-divider w-36 mb-1"><span>EDIT VENUE</span></div>
+                    <h1 className="text-3xl font-display font-bold text-foreground">{venue.name}</h1>
                 </div>
             </div>
 
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                {/* ═══ LEFT: Form ═══ */}
                 <div className="lg:col-span-2 space-y-6">
-                    <div className="bg-card rounded-xl border shadow-sm p-6">
-                        <h2 className="text-lg font-semibold mb-6">General Information</h2>
+                    <div className="bg-card border border-border rounded-lg p-6 ticket-notch">
+                        <h2 className="label-caps mb-5">General Information</h2>
                         <Form {...form}>
-                            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+                            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-5">
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                    <FormField
-                                        control={form.control}
-                                        name="name"
-                                        render={({ field }) => (
-                                            <FormItem>
-                                                <FormLabel>Venue Name</FormLabel>
-                                                <FormControl><Input {...field} /></FormControl>
-                                                <FormMessage />
-                                            </FormItem>
-                                        )}
-                                    />
-                                    <FormField
-                                        control={form.control}
-                                        name="category"
-                                        render={({ field }) => (
-                                            <FormItem>
-                                                <FormLabel>Category</FormLabel>
-                                                <Select onValueChange={field.onChange} defaultValue={field.value}>
-                                                    <FormControl><SelectTrigger><SelectValue placeholder="Select a category" /></SelectTrigger></FormControl>
-                                                    <SelectContent>
-                                                        <SelectItem value="tech">Tech</SelectItem>
-                                                        <SelectItem value="cafe">Cafe</SelectItem>
-                                                        <SelectItem value="restaurant">Restaurant</SelectItem>
-                                                    </SelectContent>
-                                                </Select>
-                                                <FormMessage />
-                                            </FormItem>
-                                        )}
-                                    />
-                                </div>
-
-                                <FormField
-                                    control={form.control}
-                                    name="description"
-                                    render={({ field }) => (
+                                    <FormField control={form.control} name="name" render={({ field }) => (
                                         <FormItem>
-                                            <FormLabel>Description</FormLabel>
-                                            <FormControl>
-                                                <Textarea rows={4} {...field} value={field.value || ""} />
-                                            </FormControl>
+                                            <FormLabel className="label-caps">Venue Name</FormLabel>
+                                            <FormControl><Input {...field} className="bg-background border-border" /></FormControl>
                                             <FormMessage />
                                         </FormItem>
-                                    )}
-                                />
-
-                                <FormField
-                                    control={form.control}
-                                    name="location"
-                                    render={({ field }) => (
+                                    )} />
+                                    <FormField control={form.control} name="category" render={({ field }) => (
                                         <FormItem>
-                                            <FormLabel>Location</FormLabel>
-                                            <FormControl><Input {...field} /></FormControl>
-                                            <FormMessage />
-                                        </FormItem>
-                                    )}
-                                />
-
-                                <div className="grid grid-cols-2 md:grid-cols-4 gap-4 pt-4 border-t">
-                                    <FormField
-                                        control={form.control}
-                                        name="openTime"
-                                        render={({ field }) => (
-                                            <FormItem>
-                                                <FormLabel>Open Time</FormLabel>
-                                                <FormControl><Input type="time" {...field} /></FormControl>
-                                                <FormMessage />
-                                            </FormItem>
-                                        )}
-                                    />
-                                    <FormField
-                                        control={form.control}
-                                        name="closeTime"
-                                        render={({ field }) => (
-                                            <FormItem>
-                                                <FormLabel>Close Time</FormLabel>
-                                                <FormControl><Input type="time" {...field} /></FormControl>
-                                                <FormMessage />
-                                            </FormItem>
-                                        )}
-                                    />
-                                    <FormField
-                                        control={form.control}
-                                        name="timezone"
-                                        render={({ field }) => (
-                                            <FormItem>
-                                                <FormLabel>Timezone</FormLabel>
-                                                <FormControl><Input {...field} value={field.value || "UTC"} /></FormControl>
-                                                <FormMessage />
-                                            </FormItem>
-                                        )}
-                                    />
-                                    <FormField
-                                        control={form.control}
-                                        name="capacity"
-                                        render={({ field }) => (
-                                            <FormItem>
-                                                <FormLabel>Capacity</FormLabel>
+                                            <FormLabel className="label-caps">Category</FormLabel>
+                                            <Select onValueChange={field.onChange} value={field.value}>
                                                 <FormControl>
-                                                    <Input type="number" {...field} onChange={e => field.onChange(parseInt(e.target.value))} />
+                                                    <SelectTrigger className="bg-background border-border"><SelectValue /></SelectTrigger>
                                                 </FormControl>
-                                                <FormMessage />
-                                            </FormItem>
-                                        )}
-                                    />
+                                                <SelectContent className="bg-card border-border">
+                                                    <SelectItem value="tech">Tech</SelectItem>
+                                                    <SelectItem value="cafe">Café</SelectItem>
+                                                    <SelectItem value="restaurant">Restaurant</SelectItem>
+                                                </SelectContent>
+                                            </Select>
+                                            <FormMessage />
+                                        </FormItem>
+                                    )} />
                                 </div>
 
-                                <div className="pt-4 border-t flex items-center justify-between">
-                                    <FormField
-                                        control={form.control}
-                                        name="status"
-                                        render={({ field }) => (
-                                            <FormItem className="flex items-center gap-3 space-y-0">
-                                                <FormLabel className="mb-0">Venue Status:</FormLabel>
-                                                <Select onValueChange={field.onChange} defaultValue={field.value}>
-                                                    <FormControl><SelectTrigger className="w-32"><SelectValue /></SelectTrigger></FormControl>
-                                                    <SelectContent>
-                                                        <SelectItem value="active">Active</SelectItem>
-                                                        <SelectItem value="disabled">Disabled</SelectItem>
-                                                    </SelectContent>
-                                                </Select>
-                                                <FormMessage />
+                                <FormField control={form.control} name="description" render={({ field }) => (
+                                    <FormItem>
+                                        <FormLabel className="label-caps">Description</FormLabel>
+                                        <FormControl><Textarea rows={3} {...field} value={field.value || ""} className="bg-background border-border" /></FormControl>
+                                        <FormMessage />
+                                    </FormItem>
+                                )} />
+
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                    <FormField control={form.control} name="location" render={({ field }) => (
+                                        <FormItem>
+                                            <FormLabel className="label-caps">Location (display text)</FormLabel>
+                                            <FormControl><Input {...field} placeholder="Lower East Side, NYC" className="bg-background border-border" /></FormControl>
+                                            <FormMessage />
+                                        </FormItem>
+                                    )} />
+                                    <FormField control={form.control} name={"address" as any} render={({ field }) => (
+                                        <FormItem>
+                                            <FormLabel className="label-caps">Street Address (for Maps)</FormLabel>
+                                            <FormControl><Input {...field} placeholder="123 Main St, City" className="bg-background border-border" /></FormControl>
+                                            <FormMessage />
+                                        </FormItem>
+                                    )} />
+                                </div>
+
+                                <div className="grid grid-cols-2 md:grid-cols-4 gap-4 pt-4 border-t border-border">
+                                    {(["openTime", "closeTime", "timezone"] as const).map((name) => (
+                                        <FormField key={name} control={form.control} name={name} render={({ field }) => (
+                                            <FormItem>
+                                                <FormLabel className="label-caps">{name === "openTime" ? "Opens" : name === "closeTime" ? "Closes" : "Timezone"}</FormLabel>
+                                                <FormControl><Input type={name.includes("Time") ? "time" : "text"} {...field} value={field.value || ""} className="bg-background border-border" /></FormControl>
                                             </FormItem>
-                                        )}
-                                    />
-                                    <Button type="submit" disabled={updateVenue.isPending}>
+                                        )} />
+                                    ))}
+                                    <FormField control={form.control} name="capacity" render={({ field }) => (
+                                        <FormItem>
+                                            <FormLabel className="label-caps">Capacity</FormLabel>
+                                            <FormControl><Input type="number" {...field} onChange={(e) => field.onChange(parseInt(e.target.value))} className="bg-background border-border" /></FormControl>
+                                        </FormItem>
+                                    )} />
+                                </div>
+
+                                <div className="pt-4 border-t border-border flex items-center justify-between">
+                                    <FormField control={form.control} name="status" render={({ field }) => (
+                                        <FormItem className="flex items-center gap-3 space-y-0">
+                                            <FormLabel className="label-caps mb-0">Status</FormLabel>
+                                            <Select onValueChange={field.onChange} value={field.value}>
+                                                <FormControl>
+                                                    <SelectTrigger className="w-32 bg-background border-border"><SelectValue /></SelectTrigger>
+                                                </FormControl>
+                                                <SelectContent className="bg-card border-border">
+                                                    <SelectItem value="active">Active</SelectItem>
+                                                    <SelectItem value="disabled">Disabled</SelectItem>
+                                                </SelectContent>
+                                            </Select>
+                                        </FormItem>
+                                    )} />
+                                    <Button type="submit" disabled={updateVenue.isPending} className="bg-primary text-primary-foreground hover:bg-primary/90 shadow-gold-glow font-semibold">
                                         {updateVenue.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                                         Save Changes
                                     </Button>
@@ -260,46 +223,73 @@ export default function AdminVenueEditPage() {
                     </div>
                 </div>
 
-                <div className="space-y-6">
-                    <div className="bg-card rounded-xl border shadow-sm p-6">
+                {/* ═══ RIGHT: Gallery + Actions ═══ */}
+                <div className="space-y-5">
+                    {/* Gallery */}
+                    <div className="bg-card border border-border rounded-lg p-5 ticket-notch">
                         <div className="flex items-center justify-between mb-4">
-                            <h2 className="text-lg font-semibold">Venue Image</h2>
-                            <Button variant="outline" size="sm" onClick={() => fileInputRef.current?.click()} disabled={isUploading}>
-                                {isUploading ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Upload className="w-4 h-4 mr-2" />}
-                                Upload
+                            <h2 className="label-caps">Photo Gallery</h2>
+                            <Button
+                                variant="outline" size="sm"
+                                className="border-primary/30 text-primary hover:bg-primary/10 text-xs"
+                                onClick={() => fileInputRef.current?.click()}
+                                disabled={isUploading}
+                            >
+                                {isUploading ? <Loader2 className="w-3.5 h-3.5 animate-spin mr-1.5" /> : <Upload className="w-3.5 h-3.5 mr-1.5" />}
+                                Add Photo
                             </Button>
-                            <input type="file" ref={fileInputRef} className="hidden" accept="image/png, image/jpeg, image/webp" onChange={handleImageUpload} />
+                            <input ref={fileInputRef} type="file" className="hidden" accept="image/*" onChange={handleUpload} />
                         </div>
 
-                        <div className="aspect-video bg-muted rounded-lg overflow-hidden flex flex-col items-center justify-center border-2 border-dashed relative group">
-                            {venue.imageUrl ? (
-                                <>
-                                    <img src={venue.imageUrl} alt={venue.name} className="w-full h-full object-cover" />
-                                    <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                                        <Button variant="destructive" size="sm" onClick={() => updateVenue.mutate({ id: venue.id, imageUrl: "" })}>
-                                            <Trash className="w-4 h-4 mr-2" /> Remove
-                                        </Button>
+                        {galleryImages.length > 0 ? (
+                            <div className="grid grid-cols-2 gap-2">
+                                {galleryImages.map((url: string, i: number) => (
+                                    <div key={i} className="relative group aspect-square rounded overflow-hidden border border-border">
+                                        <img src={url} alt={`Photo ${i + 1}`} className="w-full h-full object-cover" />
+                                        {i === 0 && (
+                                            <div className="absolute top-1.5 left-1.5 bg-primary/90 text-primary-foreground text-[9px] font-bold px-1.5 py-0.5 rounded uppercase tracking-wider">
+                                                Cover
+                                            </div>
+                                        )}
+                                        <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
+                                            {i !== 0 && (
+                                                <button
+                                                    onClick={() => handleSetPrimary(url)}
+                                                    className="p-1.5 bg-primary/80 hover:bg-primary rounded text-primary-foreground"
+                                                    title="Set as cover"
+                                                >
+                                                    <Star className="w-3.5 h-3.5" />
+                                                </button>
+                                            )}
+                                            <button
+                                                onClick={() => handleDeleteImage(url)}
+                                                disabled={deletingUrl === url}
+                                                className="p-1.5 bg-destructive/80 hover:bg-destructive rounded text-white"
+                                                title="Delete"
+                                            >
+                                                {deletingUrl === url ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Trash2 className="w-3.5 h-3.5" />}
+                                            </button>
+                                        </div>
                                     </div>
-                                </>
-                            ) : (
-                                <div className="text-muted-foreground text-center p-4">
-                                    <ImageIcon className="w-12 h-12 mx-auto mb-2 opacity-50" />
-                                    <p className="text-sm">No image uploaded</p>
-                                    <p className="text-xs mt-1">16:9 aspect ratio recommended</p>
-                                </div>
-                            )}
-                        </div>
+                                ))}
+                            </div>
+                        ) : (
+                            <div className="border-2 border-dashed border-border rounded-lg flex flex-col items-center justify-center py-8 text-muted-foreground/40">
+                                <ImageIcon className="h-10 w-10 mb-2" />
+                                <p className="text-xs">No photos yet</p>
+                            </div>
+                        )}
+                        <p className="text-xs text-muted-foreground mt-3">Hover an image to set as cover or delete. First image is the listing cover.</p>
                     </div>
 
-                    <div className="bg-card rounded-xl border shadow-sm p-6 bg-primary/5 border-primary/20">
-                        <h2 className="text-lg font-semibold mb-2 flex items-center gap-2 text-primary">
-                            <LayoutGrid className="w-5 h-5" /> Seat Management
-                        </h2>
-                        <p className="text-sm text-muted-foreground mb-4">
-                            Configure seating arrangements, sections, and individual seat availability constraints.
-                        </p>
+                    {/* Seat Management */}
+                    <div className="bg-card border border-primary/20 rounded-lg p-5">
+                        <h2 className="label-caps mb-3 text-primary">Seat Management</h2>
+                        <p className="text-sm text-muted-foreground mb-4">Configure seating sections and availability.</p>
                         <Link href={`/admin/venues/${venue.id}/seats`}>
-                            <Button className="w-full" variant="outline">Manage Seats</Button>
+                            <Button className="w-full" variant="outline" size="sm">
+                                <LayoutGrid className="w-4 h-4 mr-2" /> Manage Seats
+                            </Button>
                         </Link>
                     </div>
                 </div>

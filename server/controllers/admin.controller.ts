@@ -7,6 +7,7 @@ import fs from "fs";
 import { logAudit } from "./super_admin.controller";
 import { AdminVenueAssignmentModel } from "../models/AdminVenueAssignment";
 import { VenueModel } from "../models/Venue";
+import { ReservationModel } from "../models/Reservation";
 
 export const listMyVenues = async (req: Request, res: Response) => {
     const actor = req.user as any;
@@ -138,8 +139,25 @@ export const listReservations = async (req: Request, res: Response) => {
 
 export const cancelReservation = async (req: Request, res: Response) => {
     const resId = req.params.id;
+    const actor = req.user as any;
+
+    // Load the reservation to check venue ownership
+    const reservation = await ReservationModel.findById(resId);
+    if (!reservation) return res.status(404).json({ message: "Reservation not found" });
+
+    // Venue ownership check — super_admin can cancel any; venue admin can only cancel within their venues
+    if (actor.role !== "super_admin") {
+        const assignment = await AdminVenueAssignmentModel.findOne({
+            adminId: actor.id,
+            venueId: reservation.venueId,
+        });
+        if (!assignment) {
+            return res.status(403).json({ message: "Access denied — reservation belongs to a different venue" });
+        }
+    }
+
     const cancelled = await storage.cancelReservation(resId);
-    if (!cancelled) return res.status(404).json({ message: "Reservation not found" });
+    if (!cancelled) return res.status(409).json({ message: "Reservation is not active" });
     res.json(cancelled);
 };
 
@@ -152,13 +170,17 @@ export const uploadVenueImage = async (req: Request, res: Response, next: NextFu
         const venueId = req.params.id;
         const venue = await storage.getVenue(venueId);
         if (!venue) {
-            // Clean up uploaded file if venue doesn't exist
             fs.unlinkSync(req.file.path);
             return res.status(404).json({ message: "Venue not found" });
         }
 
         const imageUrl = `/uploads/${req.file.filename}`;
-        await storage.updateVenue(venueId, { imageUrl });
+
+        // Push to images array, also set imageUrl (legacy primary) to first image
+        await VenueModel.findByIdAndUpdate(venueId, {
+            $push: { images: imageUrl },
+            imageUrl: venue.imageUrl || imageUrl,  // only overwrite if no primary yet
+        });
 
         res.json({ imageUrl });
     } catch (error) {
@@ -167,4 +189,43 @@ export const uploadVenueImage = async (req: Request, res: Response, next: NextFu
         }
         next(error);
     }
+};
+
+/** DELETE /api/admin/venues/:id/images — remove one image from gallery */
+export const deleteVenueImage = async (req: Request, res: Response) => {
+    const { id: venueId } = req.params;
+    const { imageUrl } = req.body;
+    if (!imageUrl) return res.status(400).json({ message: "imageUrl required" });
+
+    const venue = await VenueModel.findById(venueId);
+    if (!venue) return res.status(404).json({ message: "Venue not found" });
+
+    // Remove from disk if it's a local /uploads/ file
+    if (imageUrl.startsWith("/uploads/")) {
+        const filePath = `./uploads/${imageUrl.replace("/uploads/", "")}`;
+        try { fs.unlinkSync(filePath); } catch (_) { }
+    }
+
+    await VenueModel.findByIdAndUpdate(venueId, { $pull: { images: imageUrl } });
+
+    // If the removed image was the primary, set primary to next available
+    if (venue.imageUrl === imageUrl) {
+        const remaining = (venue.images || []).filter((u: string) => u !== imageUrl);
+        await VenueModel.findByIdAndUpdate(venueId, { imageUrl: remaining[0] || null });
+    }
+
+    res.json({ message: "Image removed" });
+};
+
+/** PUT /api/admin/venues/:id/images/reorder — set the full ordered array */
+export const reorderVenueImages = async (req: Request, res: Response) => {
+    const { id: venueId } = req.params;
+    const { images } = req.body;
+    if (!Array.isArray(images)) return res.status(400).json({ message: "images[] required" });
+
+    await VenueModel.findByIdAndUpdate(venueId, {
+        images,
+        imageUrl: images[0] || null,
+    });
+    res.json({ images });
 };

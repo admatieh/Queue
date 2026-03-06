@@ -4,6 +4,7 @@ import { api } from "@shared/routes";
 import { type User, type InsertUser } from "@shared/schema";
 import { useToast } from "@/hooks/use-toast";
 import { useLocation } from "wouter";
+import { setToken, clearToken, getToken, getQueryFn } from "@/lib/queryClient";
 
 type AuthContextType = {
   user: User | null;
@@ -21,15 +22,24 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const queryClient = useQueryClient();
   const [, setLocation] = useLocation();
 
+  // Fetch current user — only possible if we have a token in memory.
+  // On page refresh the token is gone (in-memory only), so this returns null
+  // and the user must log in again.
   const { data: user, error, isLoading } = useQuery({
     queryKey: [api.auth.me.path],
     queryFn: async () => {
-      const res = await fetch(api.auth.me.path);
-      if (res.status === 401) return null;
+      if (!getToken()) return null;  // no token → unauthenticated immediately
+      const res = await fetch(api.auth.me.path, {
+        headers: { Authorization: `Bearer ${getToken()}` },
+      });
+      if (res.status === 401) {
+        clearToken();
+        return null;
+      }
       if (!res.ok) throw new Error("Failed to fetch user");
       return await res.json();
     },
-    staleTime: Infinity,
+    staleTime: Infinity, // user data only changes on login/logout
   });
 
   const loginMutation = useMutation({
@@ -44,9 +54,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
       return await res.json();
     },
-    onSuccess: (user: User) => {
-      queryClient.setQueryData([api.auth.me.path], user);
-      toast({ title: "Welcome back!", description: `Logged in as ${user.name || user.email}` });
+    onSuccess: (data: User & { token: string }) => {
+      // Store JWT in memory, clear stale admin caches, set user
+      setToken(data.token);
+      queryClient.removeQueries({ queryKey: ["/api/admin/venues/me"], exact: false });
+      queryClient.removeQueries({ queryKey: ["/api/admin/users"], exact: false });
+      const { token: _, ...safeUser } = data;
+      queryClient.setQueryData([api.auth.me.path], safeUser);
+      toast({ title: "Welcome back!", description: `Logged in as ${data.name || data.email}` });
     },
     onError: (error: Error) => {
       toast({ title: "Login failed", description: error.message, variant: "destructive" });
@@ -65,8 +80,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
       return await res.json();
     },
-    onSuccess: (user: User) => {
-      queryClient.setQueryData([api.auth.me.path], user);
+    onSuccess: (data: User & { token: string }) => {
+      setToken(data.token);
+      const { token: _, ...safeUser } = data;
+      queryClient.setQueryData([api.auth.me.path], safeUser);
       toast({ title: "Welcome!", description: "Account created successfully" });
     },
     onError: (error: Error) => {
@@ -76,10 +93,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const logoutMutation = useMutation({
     mutationFn: async () => {
-      await fetch(api.auth.logout.path, { method: "POST" });
+      // Server logout is a no-op for JWT — just clears server-side nothing
+      await fetch(api.auth.logout.path, {
+        method: "POST",
+        headers: getToken() ? { Authorization: `Bearer ${getToken()}` } : {},
+      });
     },
     onSuccess: () => {
-      queryClient.setQueryData([api.auth.me.path], null);
+      clearToken();
+      queryClient.clear();
       setLocation("/");
       toast({ title: "Logged out", description: "See you next time!" });
     },
