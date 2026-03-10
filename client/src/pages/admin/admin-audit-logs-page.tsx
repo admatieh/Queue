@@ -6,6 +6,14 @@ import { Badge } from "@/components/ui/badge";
 import { Loader2, Search, ShieldCheck, Activity } from "lucide-react";
 import { useAuth } from "@/hooks/use-auth";
 import { useQuery } from "@tanstack/react-query";
+import { getToken } from "@/lib/queryClient";
+
+function authHeaders(): Record<string, string> {
+    const headers: Record<string, string> = {};
+    const token = getToken();
+    if (token) headers["Authorization"] = `Bearer ${token}`;
+    return headers;
+}
 
 interface AuditLog {
     _id: string;
@@ -27,7 +35,7 @@ export default function AdminAuditLogsPage() {
         queryKey: ["/api/admin/audit-logs", search],
         queryFn: async () => {
             const qs = search ? `?search=${encodeURIComponent(search)}` : "";
-            const res = await fetch(`/api/admin/audit-logs${qs}`);
+            const res = await fetch(`/api/admin/audit-logs${qs}`, { headers: authHeaders() });
             if (!res.ok) throw new Error("Failed to fetch audit logs");
             return (await res.json()) as { data: AuditLog[], total: number };
         },
