@@ -7,6 +7,7 @@ import fs from "fs";
 import { logAudit } from "./super_admin.controller";
 import { AdminVenueAssignmentModel } from "../models/AdminVenueAssignment";
 import { VenueModel } from "../models/Venue";
+import { SeatModel } from "../models/Seat";
 import { ReservationModel } from "../models/Reservation";
 
 export const listMyVenues = async (req: Request, res: Response) => {
@@ -40,7 +41,25 @@ export const createVenue = async (req: Request, res: Response) => {
         console.log("[DEBUG] createVenue parsed input:", input, "actor:", actor.email);
         const venue = await storage.createVenue(input);
         await logAudit(actor.id, "CREATE_VENUE", "venue", venue.id, { name: venue.name });
-        res.status(201).json(venue);
+
+        // Auto-generate seats based on capacity
+        const MAX_AUTO_SEATS = 500;
+        const seatCount = Math.min(Math.max(input.capacity || 0, 0), MAX_AUTO_SEATS);
+        let seatsGenerated = 0;
+
+        if (seatCount > 0) {
+            const seats = Array.from({ length: seatCount }, (_, i) => ({
+                venueId: venue.id,
+                label: `Seat ${i + 1}`,
+                type: "standard",
+                status: "available",
+            }));
+            await SeatModel.insertMany(seats);
+            seatsGenerated = seatCount;
+            await logAudit(actor.id, "AUTO_GENERATE_SEATS", "seat", venue.id, { count: seatsGenerated });
+        }
+
+        res.status(201).json({ ...venue, seatsGenerated });
     } catch (err) {
         if (err instanceof z.ZodError) {
             console.error("[DEBUG] createVenue ZodError:", err.errors);

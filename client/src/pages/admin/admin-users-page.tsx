@@ -7,13 +7,16 @@ import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Loader2, Plus, Edit, Search, Users, ShieldCheck, Ban, CheckCircle2 } from "lucide-react";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
+import { Loader2, Plus, Edit, Search, Users, ShieldCheck, Ban, CheckCircle2, ChevronsUpDown, Check } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/use-auth";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import type { User } from "@shared/schema";
 import { useAdminVenues } from "@/hooks/use-venues";
 import { getToken } from "@/lib/queryClient";
+import { cn } from "@/lib/utils";
 
 function authHeaders(extra?: Record<string, string>): Record<string, string> {
     const headers: Record<string, string> = { ...extra };
@@ -54,7 +57,7 @@ export default function AdminUsersPage() {
 
     // Promote User dialog
     const [isPromoteOpen, setIsPromoteOpen] = useState(false);
-    const [promoteSearch, setPromoteSearch] = useState("");
+    const [promoteComboOpen, setPromoteComboOpen] = useState(false);
     const [selectedUserId, setSelectedUserId] = useState<string>("none");
     const [promoteRole, setPromoteRole] = useState("admin");
     const [promoteVenueId, setPromoteVenueId] = useState<string>("none");
@@ -85,12 +88,11 @@ export default function AdminUsersPage() {
         enabled: isSuperAdmin,
     });
 
-    // All users list for promotion
+    // All users list for promotion (loaded once when dialog opens, filtered client-side)
     const { data: allUsers, isLoading: isLoadingUsers } = useQuery({
-        queryKey: ["/api/admin/all-users", promoteSearch],
+        queryKey: ["/api/admin/all-users"],
         queryFn: async () => {
-            const qs = promoteSearch ? `?search=${encodeURIComponent(promoteSearch)}` : "";
-            const res = await fetch(`/api/admin/all-users${qs}`, { headers: authHeaders() });
+            const res = await fetch(`/api/admin/all-users`, { headers: authHeaders() });
             if (!res.ok) throw new Error(await readError(res, "Failed to fetch users"));
             return (await res.json()) as { data: User[]; total: number };
         },
@@ -150,7 +152,6 @@ export default function AdminUsersPage() {
             setSelectedUserId("none");
             setPromoteRole("admin");
             setPromoteVenueId("none");
-            setPromoteSearch("");
         },
         onError: (err: any) => toast({ title: "Error", description: err.message, variant: "destructive" }),
     });
@@ -213,30 +214,50 @@ export default function AdminUsersPage() {
 
                             <div className="space-y-4 py-4">
                                 <div className="space-y-2">
-                                    <label className="label-caps">Search Users</label>
-                                    <Input
-                                        placeholder="Search by name or email..."
-                                        value={promoteSearch}
-                                        onChange={(e) => setPromoteSearch(e.target.value)}
-                                        className="bg-background border-border"
-                                    />
-                                </div>
-
-                                <div className="space-y-2">
                                     <label className="label-caps">Select User</label>
-                                    <Select value={selectedUserId} onValueChange={setSelectedUserId}>
-                                        <SelectTrigger className="bg-background border-border">
-                                            <SelectValue placeholder={isLoadingUsers ? "Loading..." : "Choose a user"} />
-                                        </SelectTrigger>
-                                        <SelectContent>
-                                            <SelectItem value="none">— Select —</SelectItem>
-                                            {(allUsers?.data || []).map((u: any) => (
-                                                <SelectItem key={normalizeId(u)} value={normalizeId(u)}>
-                                                    {u.email} {u.name ? `(${u.name})` : ""}
-                                                </SelectItem>
-                                            ))}
-                                        </SelectContent>
-                                    </Select>
+                                    <Popover open={promoteComboOpen} onOpenChange={setPromoteComboOpen}>
+                                        <PopoverTrigger asChild>
+                                            <Button
+                                                variant="outline"
+                                                role="combobox"
+                                                aria-expanded={promoteComboOpen}
+                                                className="w-full justify-between bg-background border-border font-normal"
+                                            >
+                                                {isLoadingUsers
+                                                    ? "Loading..."
+                                                    : selectedUserId !== "none"
+                                                        ? (() => {
+                                                            const u = (allUsers?.data || []).find((u: any) => normalizeId(u) === selectedUserId) as any;
+                                                            return u ? `${u.email}${u.name ? ` (${u.name})` : ""}` : "Choose a user";
+                                                        })()
+                                                        : "Choose a user"}
+                                                <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                                            </Button>
+                                        </PopoverTrigger>
+                                        <PopoverContent className="w-full p-0 bg-card border-border" align="start">
+                                            <Command>
+                                                <CommandInput placeholder="Search by name or email..." className="h-9" />
+                                                <CommandList>
+                                                    <CommandEmpty>No users found.</CommandEmpty>
+                                                    <CommandGroup>
+                                                        {(allUsers?.data || []).map((u: any) => (
+                                                            <CommandItem
+                                                                key={normalizeId(u)}
+                                                                value={`${u.email} ${u.name || ""}`}
+                                                                onSelect={() => {
+                                                                    setSelectedUserId(normalizeId(u));
+                                                                    setPromoteComboOpen(false);
+                                                                }}
+                                                            >
+                                                                <Check className={cn("mr-2 h-4 w-4", selectedUserId === normalizeId(u) ? "opacity-100" : "opacity-0")} />
+                                                                {u.email}{u.name ? ` (${u.name})` : ""}
+                                                            </CommandItem>
+                                                        ))}
+                                                    </CommandGroup>
+                                                </CommandList>
+                                            </Command>
+                                        </PopoverContent>
+                                    </Popover>
                                 </div>
 
                                 <div className="space-y-2">
@@ -414,40 +435,44 @@ export default function AdminUsersPage() {
                                             </TableCell>
 
                                             <TableCell className="text-right space-x-2">
-                                                <Button
-                                                    variant="ghost"
-                                                    size="sm"
-                                                    className="hidden sm:inline-flex"
-                                                    onClick={() => {
-                                                        setEditingAdmin(admin);
-                                                        setEditStatus((admin.status || "active") as any);
-                                                        setEditVenueId(admin.venueId || "none");
-                                                        setIsEditOpen(true);
-                                                    }}
-                                                >
-                                                    <Edit className="w-4 h-4 mr-2" /> Edit
-                                                </Button>
+                                                {admin.role !== "super_admin" && (
+                                                    <Button
+                                                        variant="ghost"
+                                                        size="sm"
+                                                        className="hidden sm:inline-flex"
+                                                        onClick={() => {
+                                                            setEditingAdmin(admin);
+                                                            setEditStatus((admin.status || "active") as any);
+                                                            setEditVenueId(admin.venueId || "none");
+                                                            setIsEditOpen(true);
+                                                        }}
+                                                    >
+                                                        <Edit className="w-4 h-4 mr-2" /> Edit
+                                                    </Button>
+                                                )}
 
-                                                <Button
-                                                    variant="outline"
-                                                    size="sm"
-                                                    className="hidden sm:inline-flex"
-                                                    disabled={adminId === user?.id || updateAdmin.isPending}
-                                                    onClick={() => {
-                                                        const next = admin.status === "active" ? "disabled" : "active";
-                                                        updateAdmin.mutate({ id: adminId, status: next, venueId: admin.venueId || null });
-                                                    }}
-                                                >
-                                                    {admin.status === "active" ? (
-                                                        <>
-                                                            <Ban className="w-4 h-4 mr-2" /> Disable
-                                                        </>
-                                                    ) : (
-                                                        <>
-                                                            <CheckCircle2 className="w-4 h-4 mr-2" /> Enable
-                                                        </>
-                                                    )}
-                                                </Button>
+                                                {admin.role !== "super_admin" && (
+                                                    <Button
+                                                        variant="outline"
+                                                        size="sm"
+                                                        className="hidden sm:inline-flex"
+                                                        disabled={adminId === user?.id || updateAdmin.isPending}
+                                                        onClick={() => {
+                                                            const next = admin.status === "active" ? "disabled" : "active";
+                                                            updateAdmin.mutate({ id: adminId, status: next, venueId: admin.venueId || null });
+                                                        }}
+                                                    >
+                                                        {admin.status === "active" ? (
+                                                            <>
+                                                                <Ban className="w-4 h-4 mr-2" /> Disable
+                                                            </>
+                                                        ) : (
+                                                            <>
+                                                                <CheckCircle2 className="w-4 h-4 mr-2" /> Enable
+                                                            </>
+                                                        )}
+                                                    </Button>
+                                                )}
                                             </TableCell>
                                         </TableRow>
                                     );

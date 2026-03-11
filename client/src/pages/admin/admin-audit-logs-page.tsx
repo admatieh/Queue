@@ -106,7 +106,6 @@ export default function AdminAuditLogsPage() {
                                     <TableHead>Admin ID</TableHead>
                                     <TableHead>Action</TableHead>
                                     <TableHead>Resource</TableHead>
-                                    <TableHead>IP Address</TableHead>
                                 </TableRow>
                             </TableHeader>
                             <TableBody>
@@ -133,9 +132,7 @@ export default function AdminAuditLogsPage() {
                                                 )}
                                             </div>
                                         </TableCell>
-                                        <TableCell className="text-muted-foreground text-xs font-mono">
-                                            {log.ipAddress || "—"}
-                                        </TableCell>
+
                                     </TableRow>
                                 ))}
                             </TableBody>

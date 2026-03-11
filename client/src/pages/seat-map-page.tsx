@@ -16,6 +16,8 @@ import {
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
+import { VenueMap } from "@/components/venue-map";
+
 
 /* ────────────────────────────────────────────
    Seat Legend
@@ -96,38 +98,7 @@ function SeatTile({ seat, selected, onClick, animDelay }: SeatTileProps) {
   );
 }
 
-/* ────────────────────────────────────────────
-   Google Maps Embed
-   ──────────────────────────────────────────── */
-function VenueMap({ venue }: { venue: any }) {
-  const apiKey = import.meta.env.VITE_GOOGLE_MAPS_API_KEY;
-  const query = encodeURIComponent(
-    [venue.address, venue.location, venue.name].filter(Boolean).join(", ")
-  );
 
-  if (!apiKey) {
-    return (
-      <div className="w-full h-48 bg-card border border-border rounded-lg flex flex-col items-center justify-center gap-2 text-muted-foreground">
-        <MapPin className="h-8 w-8 text-primary/40" />
-        <span className="text-sm font-medium">{venue.address || venue.location}</span>
-        <span className="text-xs label-caps text-muted-foreground/50">Map unavailable — no API key set</span>
-      </div>
-    );
-  }
-
-  return (
-    <div className="w-full h-52 rounded-lg overflow-hidden border border-border">
-      <iframe
-        title="Venue location"
-        width="100%"
-        height="100%"
-        loading="lazy"
-        referrerPolicy="no-referrer-when-downgrade"
-        src={`https://www.google.com/maps/embed/v1/place?key=${apiKey}&q=${query}`}
-      />
-    </div>
-  );
-}
 
 /* ────────────────────────────────────────────
    Photo Gallery
@@ -301,7 +272,19 @@ export default function SeatMapPage() {
           {/* Right: Map */}
           <div className="animate-fade-up stagger-2">
             <p className="label-caps mb-2">Location</p>
-            <VenueMap venue={venue} />
+            {venue.lat && venue.lng ? (
+              <VenueMap
+                lat={venue.lat}
+                lng={venue.lng}
+                className="w-full h-52 rounded-lg overflow-hidden border border-border"
+              />
+            ) : (
+              <div className="w-full h-52 bg-card border border-border rounded-lg flex flex-col items-center justify-center gap-2 text-muted-foreground">
+                <MapPin className="h-8 w-8 text-primary/40" />
+                <span className="text-sm font-medium">{venue.address || venue.location}</span>
+                <span className="text-xs label-caps text-muted-foreground/50">No map pin set yet</span>
+              </div>
+            )}
           </div>
         </div>
 

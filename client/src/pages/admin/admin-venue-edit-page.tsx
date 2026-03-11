@@ -1,4 +1,4 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { useParams, Link } from "wouter";
 import { useVenue, useUpdateVenue } from "@/hooks/use-venues";
 import { AdminLayout } from "@/components/admin/admin-layout";
@@ -14,8 +14,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { useQueryClient } from "@tanstack/react-query";
 import {
     Loader2, ArrowLeft, Upload, Trash2, LayoutGrid, MapPin,
-    Star, Image as ImageIcon, GripVertical, X,
+    Star, Image as ImageIcon, Search,
 } from "lucide-react";
+import { VenueMap } from "@/components/venue-map";
 
 export default function AdminVenueEditPage() {
     const { id } = useParams();
@@ -26,6 +27,45 @@ export default function AdminVenueEditPage() {
     const fileInputRef = useRef<HTMLInputElement>(null);
     const [isUploading, setIsUploading] = useState(false);
     const [deletingUrl, setDeletingUrl] = useState<string | null>(null);
+
+    // Map state — independent of the form so the map re-renders live
+    const [mapLat, setMapLat] = useState<number>(48.8566);  // default: Paris
+    const [mapLng, setMapLng] = useState<number>(2.3522);
+    const [hasPin, setHasPin] = useState(false);
+    const [geoSearch, setGeoSearch] = useState("");
+    const [isGeocoding, setIsGeocoding] = useState(false);
+
+    // Seed map coordinates from saved venue once loaded
+    useEffect(() => {
+        if (venue?.lat && venue?.lng) {
+            setMapLat(venue.lat);
+            setMapLng(venue.lng);
+            setHasPin(true);
+        }
+    }, [venue?.lat, venue?.lng]);
+
+    const handleMapMove = (lat: number, lng: number) => {
+        setMapLat(lat); setMapLng(lng); setHasPin(true);
+    };
+
+    const handleGeocode = async () => {
+        const q = geoSearch.trim();
+        if (!q) return;
+        setIsGeocoding(true);
+        try {
+            const res = await fetch(
+                `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(q)}&format=json&limit=1`,
+                { headers: { "Accept-Language": "en" } }
+            );
+            const data = await res.json();
+            if (!data.length) { toast({ title: "Not found", description: "Try a more specific address.", variant: "destructive" }); return; }
+            setMapLat(parseFloat(data[0].lat));
+            setMapLng(parseFloat(data[0].lon));
+            setHasPin(true);
+        } catch {
+            toast({ title: "Geocode failed", variant: "destructive" });
+        } finally { setIsGeocoding(false); }
+    };
 
     const form = useForm<InsertVenue>({
         resolver: zodResolver(insertVenueSchema.partial()),
@@ -40,7 +80,10 @@ export default function AdminVenueEditPage() {
 
     const onSubmit = (data: Partial<InsertVenue>) => {
         if (!id) return;
-        updateVenue.mutate({ id, ...data }, {
+        // Include current map pin coordinates in save
+        const payload: any = { ...data };
+        if (hasPin) { payload.lat = mapLat; payload.lng = mapLng; }
+        updateVenue.mutate({ id, ...payload }, {
             onSuccess: () => toast({ title: "Saved", description: "Venue updated." }),
             onError: (e) => toast({ title: "Error", description: e.message, variant: "destructive" }),
         });
@@ -280,6 +323,52 @@ export default function AdminVenueEditPage() {
                             </div>
                         )}
                         <p className="text-xs text-muted-foreground mt-3">Hover an image to set as cover or delete. First image is the listing cover.</p>
+                    </div>
+
+                    {/* Location Pin */}
+                    <div className="bg-card border border-border rounded-lg p-5 ticket-notch">
+                        <h2 className="label-caps mb-3 flex items-center gap-2">
+                            <MapPin className="w-3.5 h-3.5 text-primary" /> Location Pin
+                        </h2>
+                        <p className="text-xs text-muted-foreground mb-3">
+                            Search an address or click/drag the pin on the map. Saved with your venue.
+                        </p>
+
+                        {/* Address search */}
+                        <div className="flex gap-2 mb-3">
+                            <Input
+                                placeholder="Search address…"
+                                value={geoSearch}
+                                onChange={e => setGeoSearch(e.target.value)}
+                                onKeyDown={e => e.key === "Enter" && handleGeocode()}
+                                className="bg-background border-border text-sm h-8"
+                            />
+                            <Button
+                                type="button"
+                                size="icon"
+                                variant="outline"
+                                className="h-8 w-8 shrink-0 border-border"
+                                onClick={handleGeocode}
+                                disabled={isGeocoding}
+                            >
+                                {isGeocoding ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Search className="w-3.5 h-3.5" />}
+                            </Button>
+                        </div>
+
+                        {/* Map */}
+                        <VenueMap
+                            lat={mapLat}
+                            lng={mapLng}
+                            interactive
+                            onMove={handleMapMove}
+                            className="w-full h-52 rounded-lg overflow-hidden border border-border"
+                        />
+
+                        {hasPin && (
+                            <p className="text-[11px] text-muted-foreground mt-2 font-mono">
+                                {mapLat.toFixed(5)}, {mapLng.toFixed(5)}
+                            </p>
+                        )}
                     </div>
 
                     {/* Seat Management */}

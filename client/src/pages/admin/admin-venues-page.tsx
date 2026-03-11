@@ -7,7 +7,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
 import { Loader2, Plus, Edit, Trash2, LayoutGrid, Search, Building2 } from "lucide-react";
-import { Link } from "wouter";
+import { Link, useLocation } from "wouter";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/use-auth";
 import { useForm } from "react-hook-form";
@@ -20,13 +20,26 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 function CreateVenueDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (v: boolean) => void }) {
     const createVenue = useCreateVenue();
     const { toast } = useToast();
+    const [, navigate] = useLocation();
     const form = useForm<InsertVenue>({
         resolver: zodResolver(insertVenueSchema),
         defaultValues: { name: "", location: "", description: "", capacity: 50, openTime: "09:00", closeTime: "17:00", timezone: "UTC", category: "tech", status: "active" },
     });
+
+    const capacity = form.watch("capacity") || 0;
+
     const onSubmit = (data: InsertVenue) => {
         createVenue.mutate(data, {
-            onSuccess: () => { toast({ title: "Venue created" }); onOpenChange(false); form.reset(); },
+            onSuccess: (result: any) => {
+                const count: number = result?.seatsGenerated ?? 0;
+                toast({
+                    title: "Venue created",
+                    description: count > 0 ? `${count} seats auto-generated — rename and section them now.` : "No seats were generated (capacity is 0).",
+                });
+                onOpenChange(false);
+                form.reset();
+                if (result?.id) navigate(`/admin/venues/${result.id}/seats`);
+            },
             onError: (e: any) => toast({ title: "Error", description: e?.message, variant: "destructive" }),
         });
     };
@@ -75,6 +88,11 @@ function CreateVenueDialog({ open, onOpenChange }: { open: boolean; onOpenChange
                             <FormItem>
                                 <FormLabel className="label-caps">Capacity</FormLabel>
                                 <FormControl><Input type="number" {...field} onChange={(e) => field.onChange(parseInt(e.target.value || "0", 10))} className="bg-background border-border" /></FormControl>
+                                <p className="text-xs text-muted-foreground">
+                                    {capacity > 0
+                                        ? <><span className="text-primary font-semibold">{capacity} seats</span> will be auto-generated as "Seat 1 … Seat {capacity}".</>
+                                        : "Set a capacity to auto-generate seats on creation."}
+                                </p>
                             </FormItem>
                         )} />
                         <Button type="submit" className="w-full bg-primary text-primary-foreground shadow-gold-glow font-semibold" disabled={createVenue.isPending}>
