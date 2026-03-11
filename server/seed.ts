@@ -10,6 +10,7 @@
  *   admin2:       venue2admin@queuebuddy.dev / VenueAdmin1! → Margherita
  *   users:        user01..user20@example.com / UserPass1!
  */
+
 import { connectMongo } from "./db/mongo";
 import { UserModel } from "./models/User";
 import { VenueModel } from "./models/Venue";
@@ -22,15 +23,15 @@ import mongoose from "mongoose";
 
 const RESET = process.argv.includes("--reset");
 
-// ─── Venue data ──────────────────────────────────────────────────────────────
 const VENUES = [
   {
     name: "Cafe Younes",
     location: "Hamra, Beirut",
     address: "Hamra Street, Beirut, Lebanon",
-    lat: 33.8950,
+    lat: 33.895,
     lng: 35.4827,
-    description: "One of Beirut’s most famous coffee spots known for its specialty coffee and relaxed atmosphere.",
+    description:
+      "One of Beirut’s most famous coffee spots known for its specialty coffee and relaxed atmosphere.",
     capacity: 80,
     openTime: "07:00",
     closeTime: "23:00",
@@ -46,7 +47,8 @@ const VENUES = [
     address: "Zaitunay Bay Marina, Beirut, Lebanon",
     lat: 33.8929,
     lng: 35.4957,
-    description: "Italian restaurant with waterfront views at Zaitunay Bay. Perfect for a cozy dinner or seafood evening.",
+    description:
+      "Italian restaurant with waterfront views at Zaitunay Bay.",
     capacity: 80,
     openTime: "12:00",
     closeTime: "23:00",
@@ -62,7 +64,8 @@ const VENUES = [
     address: "Beirut Digital District, Beirut, Lebanon",
     lat: 33.8938,
     lng: 35.5037,
-    description: "Modern coworking and tech hub hosting startups, developers, and entrepreneurs.",
+    description:
+      "Modern coworking and tech hub hosting startups and developers.",
     capacity: 60,
     openTime: "08:00",
     closeTime: "22:00",
@@ -78,7 +81,8 @@ const VENUES = [
     address: "Foch Street, Beirut Central District",
     lat: 33.8959,
     lng: 35.5062,
-    description: "Popular cafe in downtown Beirut serving sandwiches, pastries and coffee.",
+    description:
+      "Popular cafe in downtown Beirut serving sandwiches and pastries.",
     capacity: 50,
     openTime: "08:00",
     closeTime: "22:00",
@@ -92,9 +96,10 @@ const VENUES = [
     name: "Skybar Beirut",
     location: "Biel, Beirut",
     address: "BIEL Waterfront, Beirut",
-    lat: 33.9090,
+    lat: 33.909,
     lng: 35.5113,
-    description: "Luxury rooftop lounge and nightlife destination with panoramic city views.",
+    description:
+      "Luxury rooftop lounge and nightlife destination.",
     capacity: 150,
     openTime: "20:00",
     closeTime: "03:00",
@@ -106,13 +111,17 @@ const VENUES = [
   },
 ];
 
-// ─── Seat section builder ─────────────────────────────────────────────────────
-function buildSeats(venueId: mongoose.Types.ObjectId, sections: { name: string; rows: number; cols: number; type: string }[]) {
+function buildSeats(
+  venueId: mongoose.Types.ObjectId,
+  sections: { name: string; rows: number; cols: number; type: string }[]
+) {
   const seats: any[] = [];
+  let globalRow = 0;
+
   for (const section of sections) {
     for (let r = 0; r < section.rows; r++) {
+      const rowLabel = String.fromCharCode(65 + globalRow);
       for (let c = 1; c <= section.cols; c++) {
-        const rowLabel = String.fromCharCode(65 + r); // A, B, C...
         seats.push({
           venueId,
           label: `${rowLabel}${c}`,
@@ -120,78 +129,66 @@ function buildSeats(venueId: mongoose.Types.ObjectId, sections: { name: string; 
           type: section.type,
           locationDescription: `${section.name} — Row ${rowLabel}, Seat ${c}`,
           status: "available",
-          x: c * 60,
-          y: r * 60,
-          row: r, // optional
-          col: c, // optional
+          x: (c - 1) * 60,
+          y: globalRow * 60,
+          row: globalRow,
+          col: c,
         });
       }
+      globalRow++;
     }
   }
+
   return seats;
 }
 
-// ─── Seed helpers ─────────────────────────────────────────────────────────────
 async function clearAll() {
-    console.log("🗑️  Clearing all collections and indexes...");
+  console.log("🗑️ Clearing database...");
 
-    // List of all models
-    const models = [
-        UserModel,
-        VenueModel,
-        SeatModel,
-        ReservationModel,
-        AdminVenueAssignmentModel,
-        AuditLogModel,
-    ];
+  const models: mongoose.Model<any>[] = [
+    UserModel,
+    VenueModel,
+    SeatModel,
+    ReservationModel,
+    AdminVenueAssignmentModel,
+    AuditLogModel,
+  ];
 
-    for (const model of models) {
-        // Delete all documents
-        await model.deleteMany({});
-
-        // Drop all indexes if the collection exists
-        try {
-            await model.collection.dropIndexes();
-            console.log(`✅ Dropped indexes for ${model.collection.name}`);
-        } catch (err: any) {
-            if (err.codeName === "NamespaceNotFound") {
-                console.log(`ℹ️ No indexes found for ${model.collection.name}, skipping`);
-            } else if (err.code === 26) {
-                // NamespaceNotFound (collection doesn't exist yet)
-                console.log(`ℹ️ Collection ${model.collection.name} does not exist yet`);
-            } else {
-                throw err;
-            }
-        }
+  for (const model of models) {
+    try {
+      await model.deleteMany({});
+      console.log(`✅ Cleared ${model.collection.name}`);
+    } catch (err) {
+      console.log(`⚠️ Could not clear ${model.collection.name}`);
     }
-
-    console.log("✅ Collections cleared.");
+  }
 }
 
-// ─── Main seed function ───────────────────────────────────────────────────────
+// ── Helper: pick random seats ─────────────────────────
+function getRandomSeats(seats: any[], count: number) {
+  const shuffled = [...seats].sort(() => 0.5 - Math.random());
+  return shuffled.slice(0, count);
+}
+
+// ── Seed function ─────────────────────────
 async function seed() {
   await connectMongo();
 
   if (RESET) {
     await clearAll();
   } else {
-    const venueCount = await VenueModel.countDocuments();
-    if (venueCount > 0) {
-      console.log("ℹ️  Database already has data. Run with --reset to re-seed.");
+    const count = await VenueModel.countDocuments();
+    if (count > 0) {
+      console.log("ℹ️ Database already seeded.");
       process.exit(0);
     }
   }
 
-  console.log("🌱 Seeding database...\n");
+  console.log("🌱 Seeding database...");
 
-  // ── 1. Create venues ─────────────────────────────────────────────────────
-  console.log("📍 Creating venues...");
   const venues = await VenueModel.insertMany(VENUES);
-  const [cafeYounes, margherita, beirutDigitalDistrict, linasParis, skybar] = venues;
-  console.log(`   ✅ ${venues.length} venues created`);
+  const [cafeYounes, margherita, bdd, linas, skybar] = venues;
 
-  // ── 2. Create users ──────────────────────────────────────────────────────
-  console.log("👤 Creating users...");
   const superAdminHash = await hashPassword("SuperAdmin1!");
   const superAdmin = await UserModel.create({
     email: "super@queuebuddy.dev",
@@ -202,144 +199,104 @@ async function seed() {
   });
 
   const adminHash = await hashPassword("VenueAdmin1!");
-  const admin1 = await UserModel.create({
-    email: "venue1admin@queuebuddy.dev",
-    passwordHash: adminHash,
-    name: "Cafe Younes Manager",
-    role: "admin",
-    status: "active",
-    venueId: cafeYounes._id,
-  });
-  const admin2 = await UserModel.create({
-    email: "venue2admin@queuebuddy.dev",
-    passwordHash: adminHash,
-    name: "Margherita Manager",
-    role: "admin",
-    status: "active",
-    venueId: margherita._id,
-  });
+  const admins = [
+    { email: "venue1admin@queuebuddy.dev", name: "Cafe Younes Manager", venue: cafeYounes },
+    { email: "venue2admin@queuebuddy.dev", name: "Margherita Manager", venue: margherita },
+    { email: "venue3admin@queuebuddy.dev", name: "BDD Manager", venue: bdd },
+    { email: "venue4admin@queuebuddy.dev", name: "Linas Manager", venue: linas },
+    { email: "venue5admin@queuebuddy.dev", name: "Skybar Manager", venue: skybar },
+  ];
 
-  await AdminVenueAssignmentModel.insertMany([
-    { adminId: admin1._id, venueId: cafeYounes._id, assignedBy: superAdmin._id },
-    { adminId: admin2._id, venueId: margherita._id, assignedBy: superAdmin._id },
-  ]);
+  const adminUsers = [];
+  for (const a of admins) {
+    const admin = await UserModel.create({
+      email: a.email,
+      passwordHash: adminHash,
+      name: a.name,
+      role: "admin",
+      venueId: a.venue._id,
+      status: "active",
+    });
+    adminUsers.push(admin);
+    await AdminVenueAssignmentModel.create({ adminId: admin._id, venueId: a.venue._id, assignedBy: superAdmin._id });
+  }
 
   const userHash = await hashPassword("UserPass1!");
-  const userDocs = Array.from({ length: 20 }, (_, i) => ({
-    email: `user${String(i + 1).padStart(2, "0")}@example.com`,
-    passwordHash: userHash,
-    name: `Test User ${i + 1}`,
-    role: "user" as const,
-    status: i === 19 ? "disabled" : "active",
-  }));
-  const users = await UserModel.insertMany(userDocs);
-  console.log(`   ✅ 1 super_admin, 2 admins, ${users.length} users created`);
+  const users = await UserModel.insertMany(
+    Array.from({ length: 20 }, (_, i) => ({
+      email: `user${String(i + 1).padStart(2, "0")}@example.com`,
+      passwordHash: userHash,
+      name: `Test User ${i + 1}`,
+      role: "user",
+      status: i === 19 ? "disabled" : "active",
+    }))
+  );
 
-  // ── 3. Create seats ──────────────────────────────────────────────────────
-  console.log("🎟️  Creating seats...");
-  const cafeYounesSeats = await SeatModel.insertMany(buildSeats(cafeYounes._id, [
-    { name: "Window Tables", rows: 2, cols: 4, type: "premium" },
-    { name: "Main Area", rows: 3, cols: 6, type: "standard" },
-    { name: "Coffee Bar", rows: 1, cols: 6, type: "standard" },
-  ]));
-  await SeatModel.updateOne({ venueId: cafeYounes._id, label: "B3" }, { status: "disabled" });
-
-  const margheritaSeats = await SeatModel.insertMany(buildSeats(margherita._id, [
-    { name: "Terrace", rows: 3, cols: 5, type: "premium" },
-    { name: "Indoor Dining", rows: 4, cols: 6, type: "standard" },
-    { name: "Bar", rows: 1, cols: 8, type: "standard" },
-  ]));
-
-  const bddSeats = await SeatModel.insertMany(buildSeats(beirutDigitalDistrict._id, [
-    { name: "Window Desks", rows: 2, cols: 6, type: "standard" },
-    { name: "Quiet Zone", rows: 2, cols: 6, type: "standard" },
-    { name: "Collaborative Area", rows: 2, cols: 8, type: "premium" },
-  ]));
-
-  const linasSeats = await SeatModel.insertMany(buildSeats(linasParis._id, [
-    { name: "Window", rows: 2, cols: 4, type: "standard" },
-    { name: "Interior", rows: 3, cols: 5, type: "standard" },
-  ]));
-
-  const skybarSeats = await SeatModel.insertMany(buildSeats(skybar._id, [
-    { name: "VIP Lounge", rows: 2, cols: 6, type: "premium" },
-    { name: "Main Floor", rows: 4, cols: 8, type: "standard" },
-    { name: "Bar Counter", rows: 1, cols: 10, type: "standard" },
-  ]));
-  await SeatModel.updateOne({ venueId: skybar._id, label: "C4" }, { status: "disabled" });
-  console.log("   ✅ Seats created for all venues");
-
-  // ── 4. Reservations ───────────────────────────────────────────────────────
-  console.log("📅 Creating sample reservations...");
   const now = new Date();
-  const activeSeatDocs = cafeYounesSeats.slice(0, 5);
-  const activeReservations = activeSeatDocs.map((seat, i) => ({
-    userId: users[i]._id,
-    venueId: cafeYounes._id,
-    seatId: seat._id,
-    durationMinutes: 90,
-    startTime: new Date(now.getTime() - 15 * 60000),
-    endTime: new Date(now.getTime() + 75 * 60000),
-    status: "active" as const,
-  }));
-  await ReservationModel.insertMany(activeReservations);
-  await SeatModel.updateMany({ _id: { $in: activeSeatDocs.map(s => s._id) } }, { status: "occupied" });
 
-  const skybarActive = skybarSeats.slice(0, 8);
+  // ── Seats ─────────────────────────
+  const cafeSeats = await SeatModel.insertMany(
+    buildSeats(cafeYounes._id, [
+      { name: "Window Tables", rows: 2, cols: 4, type: "premium" },
+      { name: "Main Area", rows: 3, cols: 6, type: "standard" },
+      { name: "Coffee Bar", rows: 1, cols: 6, type: "standard" },
+    ])
+  );
+
+  const skySeats = await SeatModel.insertMany(
+    buildSeats(skybar._id, [
+      { name: "VIP Lounge", rows: 2, cols: 6, type: "premium" },
+      { name: "Main Floor", rows: 4, cols: 8, type: "standard" },
+      { name: "Bar Counter", rows: 1, cols: 10, type: "standard" },
+    ])
+  );
+
+  const margheritaSeats = await SeatModel.insertMany(
+    buildSeats(margherita._id, [
+      { name: "Terrace", rows: 3, cols: 5, type: "premium" },
+      { name: "Indoor Dining", rows: 4, cols: 6, type: "standard" },
+      { name: "Bar", rows: 1, cols: 8, type: "standard" },
+    ])
+  );
+
+  const bddSeats = await SeatModel.insertMany(
+    buildSeats(bdd._id, [
+      { name: "Window Desks", rows: 2, cols: 6, type: "standard" },
+      { name: "Quiet Zone", rows: 2, cols: 6, type: "standard" },
+      { name: "Collaborative Area", rows: 2, cols: 8, type: "premium" },
+    ])
+  );
+
+  const linasSeats = await SeatModel.insertMany(
+    buildSeats(linas._id, [
+      { name: "Window", rows: 2, cols: 4, type: "standard" },
+      { name: "Interior", rows: 2, cols: 5, type: "standard" },
+    ])
+  );
+
+  // ── Random reservations for Cafe Younes ───────────────
+  const randomCafeSeats = getRandomSeats(cafeSeats, 10); // 10 random seats
   await ReservationModel.insertMany(
-    skybarActive.map((seat, i) => ({
-      userId: users[5 + i]._id,
-      venueId: skybar._id,
+    randomCafeSeats.map((seat, i) => ({
+      userId: users[i % users.length]._id,
+      venueId: cafeYounes._id,
       seatId: seat._id,
-      durationMinutes: 120,
-      startTime: new Date(now.getTime() - 30 * 60000),
-      endTime: new Date(now.getTime() + 90 * 60000),
+      durationMinutes: 90,
+      startTime: new Date(now.getTime() - Math.floor(Math.random() * 30) * 60000),
+      endTime: new Date(now.getTime() + Math.floor(Math.random() * 90) * 60000),
       status: "active" as const,
     }))
   );
-  await SeatModel.updateMany({ _id: { $in: skybarActive.map(s => s._id) } }, { status: "occupied" });
 
-  const pastTime = new Date(now.getTime() - 3600000);
-  await ReservationModel.insertMany(
-    cafeYounesSeats.slice(10, 15).map((seat, i) => ({
-      userId: users[i]._id,
-      venueId: cafeYounes._id,
-      seatId: seat._id,
-      durationMinutes: 60,
-      startTime: new Date(pastTime.getTime() - 60 * 60000),
-      endTime: pastTime,
-      status: "expired" as const,
-    }))
+  await SeatModel.updateMany(
+    { _id: { $in: randomCafeSeats.map(s => s._id) } },
+    { status: "occupied" }
   );
-  await ReservationModel.insertMany(
-    cafeYounesSeats.slice(15, 18).map((seat, i) => ({
-      userId: users[i]._id,
-      venueId: cafeYounes._id,
-      seatId: seat._id,
-      durationMinutes: 45,
-      startTime: new Date(pastTime.getTime() - 2 * 3600000),
-      endTime: new Date(pastTime.getTime() - 1.25 * 3600000),
-      status: "cancelled" as const,
-    }))
-  );
-  console.log(`   ✅ Reservations seeded (active, expired, cancelled)`);
 
-  // ── 5. Update capacities ─────────────────────────────────────────────────
-  await VenueModel.findByIdAndUpdate(cafeYounes._id, { capacity: cafeYounesSeats.length });
-  await VenueModel.findByIdAndUpdate(margherita._id, { capacity: margheritaSeats.length });
-  await VenueModel.findByIdAndUpdate(beirutDigitalDistrict._id, { capacity: bddSeats.length });
-  await VenueModel.findByIdAndUpdate(linasParis._id, { capacity: linasSeats.length });
-  await VenueModel.findByIdAndUpdate(skybar._id, { capacity: skybarSeats.length });
-
-  console.log("\n✅ Seed complete!\n");
-  console.log("─────────────────────────────────────────────────");
-  console.log("🔑 Login credentials:");
-  console.log("  Super Admin:  super@queuebuddy.dev        / SuperAdmin1!");
-  console.log("  Venue Admin1: venue1admin@queuebuddy.dev  / VenueAdmin1!  (Cafe Younes)");
-  console.log("  Venue Admin2: venue2admin@queuebuddy.dev  / VenueAdmin1!  (Margherita)");
-  console.log("  Users:        user01..user20@example.com  / UserPass1!");
-  console.log("  (user20 is disabled for testing)");
-  console.log("─────────────────────────────────────────────────\n");
+  console.log("\n✅ Seed complete\n");
+  console.log("Super Admin: super@queuebuddy.dev / SuperAdmin1!");
+  console.log("Admins: venue1admin@queuebuddy.dev / VenueAdmin1!, venue2admin@queuebuddy.dev / VenueAdmin1!");
+  console.log("Users: user01..user20@example.com / UserPass1!");
 
   process.exit(0);
 }
