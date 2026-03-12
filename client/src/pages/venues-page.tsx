@@ -186,8 +186,8 @@ export default function VenuesPage() {
                       <div className="absolute bottom-3 left-3">
                         <Badge
                           className={`flex items-center gap-1 text-xs font-semibold border ${isOpen
-                              ? "bg-status-available/20 border-status-available/50 text-status-available"
-                              : "bg-status-occupied/20 border-status-occupied/50 text-status-occupied"
+                            ? "bg-status-available/20 border-status-available/50 text-status-available"
+                            : "bg-status-occupied/20 border-status-occupied/50 text-status-occupied"
                             }`}
                         >
                           <Clock className="h-3 w-3" />

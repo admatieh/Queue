@@ -129,10 +129,16 @@ export class DatabaseStorage implements IStorage {
   async getVenues(): Promise<Venue[]> {
     const now = new Date();
     const venuesWithOccupancy = await VenueModel.aggregate([
-      // H6 FIX: soft-delete filter must be explicit in aggregation pipelines
-      // (Mongoose middleware only applies to Model.find*, not aggregate)
       {
         $match: { deletedAt: null }
+      },
+      {
+        $lookup: {
+          from: "seats",
+          localField: "_id",
+          foreignField: "venueId",
+          as: "allSeats"
+        }
       },
       {
         $lookup: {
@@ -156,11 +162,13 @@ export class DatabaseStorage implements IStorage {
       },
       {
         $addFields: {
+          capacity: { $size: "$allSeats" },
           occupiedSeats: { $size: "$activeReservations" }
         }
       },
       {
         $project: {
+          allSeats: 0,
           activeReservations: 0
         }
       },
@@ -195,7 +203,23 @@ export class DatabaseStorage implements IStorage {
   async getVenue(id: string): Promise<Venue | undefined> {
     if (!mongoose.Types.ObjectId.isValid(id)) return undefined;
     const venue = await VenueModel.findById(id);
-    return venue ? this.mapVenue(venue) : undefined;
+    if (!venue) return undefined;
+
+    const [capacity, occupiedSeats] = await Promise.all([
+      SeatModel.countDocuments({ venueId: id }),
+      ReservationModel.countDocuments({
+        venueId: id,
+        status: "active",
+        endTime: { $gt: new Date() }
+      })
+    ]);
+
+    const mapped = this.mapVenue(venue);
+    return {
+      ...mapped,
+      capacity,
+      occupiedSeats
+    };
   }
 
   async createVenue(venue: InsertVenue): Promise<Venue> {
